@@ -12,6 +12,8 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   token: string | null;
+  requires2FA: boolean;
+  twoFAData: { userId: string; username: string } | null;
 }
 
 // Auth actions
@@ -21,6 +23,9 @@ type AuthAction =
   | { type: 'AUTH_FAILURE'; payload: string }
   | { type: 'AUTH_LOGOUT' }
   | { type: 'CLEAR_ERROR' }
+  | { type: 'CLEAR_LOADING' }
+  | { type: 'SET_2FA_REQUIRED'; payload: { userId: string; username: string } }
+  | { type: 'CLEAR_2FA' }
   | { type: 'UPDATE_USER'; payload: AuthUser };
 
 // Helper function to map backend role to frontend role
@@ -47,6 +52,8 @@ const initialState: AuthState = {
   isLoading: true,
   error: null,
   token: null,
+  requires2FA: false,
+  twoFAData: null,
 };
 
 // Auth reducer
@@ -67,6 +74,8 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: true,
         isLoading: false,
         error: null,
+        requires2FA: false,
+        twoFAData: null,
       };
     case 'AUTH_FAILURE':
       return {
@@ -88,6 +97,24 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         ...state,
         error: null,
       };
+    case 'CLEAR_LOADING':
+      return {
+        ...state,
+        isLoading: false,
+      };
+    case 'SET_2FA_REQUIRED':
+      return {
+        ...state,
+        requires2FA: true,
+        twoFAData: action.payload,
+        isLoading: false,
+      };
+    case 'CLEAR_2FA':
+      return {
+        ...state,
+        requires2FA: false,
+        twoFAData: null,
+      };
     case 'UPDATE_USER':
       return {
         ...state,
@@ -102,6 +129,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 // Auth context interface
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  complete2FALogin: (user: AuthUser, token: string) => Promise<void>;
   register: (userData: {
     username: string;
     email: string;
@@ -114,6 +142,7 @@ interface AuthContextType extends AuthState {
   forceLogout: () => void;
   refreshUser: () => Promise<void>;
   clearError: () => void;
+  clear2FA: () => void;
   hasPermission: (permission: string) => boolean;
   canAccessRoute: (requiredRole: FrontendRole | FrontendRole[]) => boolean;
 }
@@ -209,33 +238,90 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * Login user
+   * Login user - handles both regular login and 2FA requirement
    */
   const login = async (username: string, password: string): Promise<void> => {
     try {
+      console.log('🔐 AuthContext: Starting login for', username);
       dispatch({ type: 'AUTH_START' });
       
       const response = await authService.login({ username, password });
-      if (response.success && response.data) {
-        dispatch({ 
-          type: 'AUTH_SUCCESS', 
-          payload: { 
-            user: response.data.user, 
-            token: response.data.token 
-          } 
-        });
+      console.log('🔐 AuthContext: Login response:', response);
+      
+      if (response.success) {
+        if (response.requires2FA && response.data) {
+          console.log('🔐 AuthContext: 2FA required detected');
+          // 2FA required - cast to Login2FAResponse and throw with 2FA data
+          const twoFAData = response.data as any; // Using any to access userId/username
+          const error2FA = { 
+            requires2FA: true, 
+            userId: twoFAData.userId, 
+            username: twoFAData.username 
+          };
+          console.log('🔐 AuthContext: Throwing 2FA error:', error2FA);
+          throw new Error(JSON.stringify(error2FA));
+        } else if (response.data) {
+          console.log('🔐 AuthContext: Regular login success');
+          // Regular login success - cast to LoginResponse
+          const loginData = response.data as any; // Using any to access user/token
+          dispatch({ 
+            type: 'AUTH_SUCCESS', 
+            payload: { 
+              user: loginData.user, 
+              token: loginData.token 
+            } 
+          });
+        }
       } else {
+        console.log('🔐 AuthContext: Login failed:', response.message);
         dispatch({ 
           type: 'AUTH_FAILURE', 
-          payload: response.error || 'Login failed' 
+          payload: response.message || 'Login failed' 
         });
       }
     } catch (error: any) {
-      dispatch({ 
-        type: 'AUTH_FAILURE', 
-        payload: error.message || 'Login failed' 
-      });
+      console.log('🔐 AuthContext: Caught error:', error);
+      
+      // Check if it's a 2FA requirement (not a real error)
+      let is2FAError = false;
+      try {
+        const errorData = JSON.parse(error.message);
+        if (errorData.requires2FA) {
+          console.log('🔐 AuthContext: This is a 2FA error, re-throwing without dispatching failure');
+          is2FAError = true;
+        }
+      } catch (parseError) {
+        console.log('🔐 AuthContext: Not a JSON error, handling as regular auth failure');
+      }
+      
+      if (is2FAError) {
+        // Set 2FA required state instead of throwing error
+        const errorData = JSON.parse(error.message);
+        console.log('🔐 AuthContext: Setting 2FA required in state');
+        dispatch({ 
+          type: 'SET_2FA_REQUIRED', 
+          payload: { userId: errorData.userId, username: errorData.username } 
+        });
+        return; // Don't throw error, just return
+      } else {
+        // Only dispatch failure for actual login errors, not 2FA requirements
+        console.log('🔐 AuthContext: Dispatching AUTH_FAILURE for regular login error');
+        dispatch({ 
+          type: 'AUTH_FAILURE', 
+          payload: error.message || 'Login failed' 
+        });
+      }
     }
+  };
+
+  /**
+   * Complete login after 2FA verification
+   */
+  const complete2FALogin = async (user: AuthUser, token: string): Promise<void> => {
+    dispatch({ 
+      type: 'AUTH_SUCCESS', 
+      payload: { user, token } 
+    });
   };
 
   /**
@@ -350,6 +436,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
+   * Clear 2FA requirement
+   */
+  const clear2FA = (): void => {
+    dispatch({ type: 'CLEAR_2FA' });
+  };
+
+  /**
    * Check if user has specific permission based on role
    */
   const hasPermission = (permission: string): boolean => {
@@ -383,11 +476,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const contextValue: AuthContextType = {
     ...state,
     login,
+    complete2FALogin,
     register,
     logout,
     forceLogout,
     refreshUser,
     clearError,
+    clear2FA,
     hasPermission,
     canAccessRoute,
   };

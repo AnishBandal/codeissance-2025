@@ -7,10 +7,17 @@ const { requireRole, ROLES } = require('../middleware/rbacMiddleware');
 
 /**
  * @route   POST /api/auth/login
- * @desc    Login user
+ * @desc    Login user (may require 2FA)
  * @access  Public
  */
 router.post('/login', authController.login);
+
+/**
+ * @route   POST /api/auth/login-2fa
+ * @desc    Complete login with 2FA verification
+ * @access  Public
+ */
+router.post('/login-2fa', authController.loginWith2FA);
 
 /**
  * @route   GET /api/auth/profile

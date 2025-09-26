@@ -68,6 +68,7 @@ app.use('/api/leads', leadsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/2fa', require('./routes/twoFactor'));
 app.use('/api/leads', require('./routes/leadSync')); // Added for offline sync support
 
 // 404 handler
