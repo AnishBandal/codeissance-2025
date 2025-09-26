@@ -1,37 +1,74 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import DashboardStats from '@/components/dashboard/DashboardStats';
-import { useRole } from '@/contexts/RoleContext';
-import { mockLeads, mockAnalytics } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { leadService } from '@/services/leadService';
+import type { BackendLead, LeadStats } from '@/services/leadService';
 import { 
   Plus, 
   ArrowRight, 
   Clock, 
   AlertTriangle, 
   CheckCircle,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-  const { currentRole, currentUser } = useRole();
+  const { user, role } = useAuth();
+  const [recentLeads, setRecentLeads] = useState<BackendLead[]>([]);
+  const [analytics, setAnalytics] = useState<LeadStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Get recent leads based on role
-  const getRecentLeads = () => {
-    const leads = mockLeads.slice(0, 5);
-    if (currentRole === 'processing') {
-      return leads.filter(lead => lead.assignedTo === currentUser.name);
+  // Load recent leads and analytics on component mount
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load recent leads
+        const leadsResponse = await leadService.getLeads({ limit: 5, sortBy: 'updatedAt', sortOrder: 'desc' });
+        if (leadsResponse.success && leadsResponse.data) {
+          setRecentLeads(leadsResponse.data.leads);
+        }
+
+        // Load analytics data for Higher Authority
+        if (role === 'authority') {
+          const analyticsResponse = await leadService.getLeadStats();
+          if (analyticsResponse.success && analyticsResponse.data) {
+            setAnalytics(analyticsResponse.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [role]);
+
+  // Get role title for display
+  const getRoleTitle = (role: string | null) => {
+    switch (role) {
+      case 'authority':
+        return 'Higher Authority';
+      case 'nodal':
+        return 'Nodal Officer';
+      case 'processing':
+        return 'Processing Staff';
+      default:
+        return 'Unknown Role';
     }
-    return leads;
   };
-
-  const recentLeads = getRecentLeads();
 
   // Get priority actions based on role
   const getPriorityActions = () => {
-    switch (currentRole) {
+    switch (role) {
       case 'processing':
         return [
           { 
@@ -104,10 +141,10 @@ const Dashboard: React.FC = () => {
       {/* Welcome Header */}
       <div className="bg-gradient-to-r from-orange-50 to-blue-50 rounded-lg p-6 border border-orange-100">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Welcome back, {currentUser.name}
+          Welcome back, {user?.username || 'User'}
         </h1>
         <p className="text-gray-600">
-          {currentUser.roleTitle} • {currentUser.region}
+          {getRoleTitle(role)} • {user?.zone || 'Unknown Zone'}
         </p>
         <div className="mt-4 flex space-x-4">
           <Button asChild className="bg-orange-600 hover:bg-orange-700">
@@ -175,38 +212,51 @@ const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentLeads.map((lead) => (
-                <div key={lead.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <p className="font-medium text-gray-900">{lead.customerName}</p>
-                      <Badge 
-                        variant={
-                          lead.priorityScore >= 80 ? 'destructive' : 
-                          lead.priorityScore >= 60 ? 'default' : 
-                          'secondary'
-                        }
-                        className="text-xs"
-                      >
-                        {lead.priorityScore >= 80 ? 'High' : 
-                         lead.priorityScore >= 60 ? 'Medium' : 'Low'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600">{lead.productType} • {lead.loanAmount}</p>
-                    <p className="text-xs text-gray-500">Last updated: {lead.lastUpdated}</p>
-                  </div>
-                  <Badge variant="outline" className="ml-4">
-                    {lead.status}
-                  </Badge>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <span className="ml-2 text-gray-500">Loading leads...</span>
                 </div>
-              ))}
+              ) : recentLeads.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No recent leads found</p>
+                </div>
+              ) : (
+                recentLeads.map((lead) => (
+                  <div key={lead._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <p className="font-medium text-gray-900">{lead.customerName}</p>
+                        <Badge 
+                          variant={
+                            lead.priorityScore >= 80 ? 'destructive' : 
+                            lead.priorityScore >= 60 ? 'default' : 
+                            'secondary'
+                          }
+                          className="text-xs"
+                        >
+                          {lead.priorityScore >= 80 ? 'High' : 
+                           lead.priorityScore >= 60 ? 'Medium' : 'Low'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600">{lead.productType} • {lead.loanAmount || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">
+                        Last updated: {new Date(lead.updatedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="ml-4">
+                      {lead.status}
+                    </Badge>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Quick Analytics for Higher Authority */}
-      {currentRole === 'authority' && (
+      {role === 'authority' && analytics && (
         <Card className="boi-card">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -216,7 +266,7 @@ const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {mockAnalytics.productDistribution.map((product) => (
+              {analytics.productDistribution.map((product) => (
                 <div key={product.product} className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{product.count}</p>
                   <p className="text-sm text-gray-600">{product.product}</p>

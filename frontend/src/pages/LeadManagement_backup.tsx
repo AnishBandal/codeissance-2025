@@ -11,8 +11,10 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Loader2,
-  RefreshCw
+  Loader2                  <TableHead className="cursor-pointer" onClick={() => handleSort('_id')}>
+                    <div className="flex items-center space-x-1">
+                      <span>ID</span>
+                      {getSortIcon('_id')} RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -101,6 +103,13 @@ const LeadManagement: React.FC = () => {
                            lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            lead._id.toLowerCase().includes(searchTerm.toLowerCase());
       
+      const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+      
+      const matchesPriority = priorityFilter === 'all' || 
+                             (priorityFilter === 'high' && lead.priorityScore >= 80) ||
+                             (priorityFilter === 'medium' && lead.priorityScore >= 60 && lead.priorityScore < 80) ||
+                             (priorityFilter === 'low' && lead.priorityScore < 60);
+
       const matchesPriority = priorityFilter === 'all' || 
                              (priorityFilter === 'high' && lead.priorityScore >= 80) ||
                              (priorityFilter === 'medium' && lead.priorityScore >= 60 && lead.priorityScore < 80) ||
@@ -117,7 +126,16 @@ const LeadManagement: React.FC = () => {
       setSortField(field);
       setSortDirection('desc');
     }
-    setCurrentPage(1); // Reset to first page when sorting
+  };
+
+  const getPriorityBadge = (score: number) => {
+    if (score >= 80) {
+      return <Badge variant="destructive" className="text-xs">High</Badge>;
+    } else if (score >= 60) {
+      return <Badge variant="default" className="text-xs">Medium</Badge>;
+    } else {
+      return <Badge variant="secondary" className="text-xs">Low</Badge>;
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -127,24 +145,14 @@ const LeadManagement: React.FC = () => {
       'Under Review': 'bg-purple-100 text-purple-800',
       'Approved': 'bg-green-100 text-green-800',
       'Rejected': 'bg-red-100 text-red-800',
-      'Completed': 'bg-gray-100 text-gray-800',
+      'Completed': 'bg-gray-100 text-gray-800'
     };
-
+    
     return (
-      <Badge className={statusColors[status] || 'bg-gray-100 text-gray-800'}>
+      <Badge variant="outline" className={`text-xs ${statusColors[status] || ''}`}>
         {status}
       </Badge>
     );
-  };
-
-  const getPriorityBadge = (priorityScore: number) => {
-    if (priorityScore >= 80) {
-      return <Badge variant="destructive" className="text-xs">High</Badge>;
-    } else if (priorityScore >= 60) {
-      return <Badge variant="default" className="text-xs">Medium</Badge>;
-    } else {
-      return <Badge variant="secondary" className="text-xs">Low</Badge>;
-    }
   };
 
   const getSortIcon = (field: keyof BackendLead) => {
@@ -167,105 +175,81 @@ const LeadManagement: React.FC = () => {
           <p className="text-gray-600">Manage and track customer leads</p>
         </div>
         
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            onClick={refreshLeads}
-            disabled={loading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+        {(currentRole === 'processing' || currentRole === 'nodal') && (
+          <Button asChild className="bg-orange-600 hover:bg-orange-700">
+            <Link to="/leads/new">
+              <Plus className="w-4 h-4 mr-2" />
+              New Lead
+            </Link>
           </Button>
-          
-          {(currentRole === 'processing' || currentRole === 'nodal') && (
-            <Button asChild className="bg-orange-600 hover:bg-orange-700">
-              <Link to="/leads/new">
-                <Plus className="w-4 h-4 mr-2" />
-                New Lead
-              </Link>
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="boi-card">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="w-5 h-5 mr-2" />
+            Filters & Search
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Search</label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search leads..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by name, email, or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="New">New</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Under Review">Under Review</SelectItem>
+                <SelectItem value="Approved">Approved</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Under Review">Under Review</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="high">High Priority (80+)</SelectItem>
+                <SelectItem value="medium">Medium Priority (60-79)</SelectItem>
+                <SelectItem value="low">Low Priority (&lt;60)</SelectItem>
+              </SelectContent>
+            </Select>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Priority</label>
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Priorities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="high">High Priority (≥80)</SelectItem>
-                  <SelectItem value="medium">Medium Priority (60-79)</SelectItem>
-                  <SelectItem value="low">Low Priority (&lt;60)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Results</label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-gray-50">
-                <span className="text-sm text-gray-600">
-                  Showing {filteredLeads.length} of {totalLeads} leads
-                </span>
-              </div>
+            <div className="text-sm text-gray-600 flex items-center">
+              <span>Showing {filteredLeads.length} of {totalLeads} leads</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Leads Table */}
-      <Card>
+      <Card className="boi-card">
         <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400 mr-2" />
-              <span className="text-gray-500">Loading leads...</span>
-            </div>
-          ) : (
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('_id')}>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('id')}>
                     <div className="flex items-center space-x-1">
-                      <span>ID</span>
-                      {getSortIcon('_id')}
+                      <span>Lead ID</span>
+                      {getSortIcon('id')}
                     </div>
                   </TableHead>
                   <TableHead className="cursor-pointer" onClick={() => handleSort('customerName')}>
@@ -274,7 +258,8 @@ const LeadManagement: React.FC = () => {
                       {getSortIcon('customerName')}
                     </div>
                   </TableHead>
-                  <TableHead>Product</TableHead>
+                  <TableHead>Product Type</TableHead>
+                  <TableHead>Loan Amount</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
                     <div className="flex items-center space-x-1">
                       <span>Status</span>
@@ -288,70 +273,56 @@ const LeadManagement: React.FC = () => {
                     </div>
                   </TableHead>
                   <TableHead>Assigned To</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('updatedAt')}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('lastUpdated')}>
                     <div className="flex items-center space-x-1">
                       <span>Last Updated</span>
-                      {getSortIcon('updatedAt')}
+                      {getSortIcon('lastUpdated')}
                     </div>
                   </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLeads.map((lead) => (
-                  <TableRow key={lead._id}>
-                    <TableCell className="font-mono text-sm">
-                      {lead._id.slice(-8)}
-                    </TableCell>
+                {filteredAndSortedLeads.map((lead) => (
+                  <TableRow key={lead.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">{lead.id}</TableCell>
                     <TableCell>
-                      <div className="space-y-1">
+                      <div>
                         <p className="font-medium">{lead.customerName}</p>
                         <p className="text-sm text-gray-500">{lead.email}</p>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">{lead.productType}</p>
-                        <p className="text-sm text-gray-500">{lead.loanAmount || 'N/A'}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(lead.status)}
-                    </TableCell>
+                    <TableCell>{lead.productType}</TableCell>
+                    <TableCell className="font-medium text-green-600">{lead.loanAmount}</TableCell>
+                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         {getPriorityBadge(lead.priorityScore)}
-                        <span className="text-sm text-gray-600">({lead.priorityScore})</span>
+                        <span className="text-sm text-gray-500">({lead.priorityScore})</span>
                       </div>
                     </TableCell>
+                    <TableCell>{lead.assignedTo}</TableCell>
                     <TableCell>
-                      {typeof lead.assignedTo === 'object' && lead.assignedTo ? (
-                        <div className="flex items-center space-x-2">
-                          <UserCheck className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">{lead.assignedTo.username}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">Unassigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm">
-                          {new Date(lead.updatedAt).toLocaleDateString()}
-                        </span>
+                      <div className="flex items-center space-x-1 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4" />
+                        <span>{lead.lastUpdated}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/leads/${lead._id}`}>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to={`/leads/${lead.id}`}>
                             <Eye className="w-4 h-4" />
                           </Link>
                         </Button>
                         {(currentRole === 'processing' || currentRole === 'nodal') && (
-                          <Button variant="ghost" size="sm">
+                          <Button size="sm" variant="outline">
                             <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {(currentRole === 'nodal' || currentRole === 'authority') && (
+                          <Button size="sm" variant="outline">
+                            <UserCheck className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
@@ -360,39 +331,30 @@ const LeadManagement: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
-          )}
-
-          {!loading && filteredLeads.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No leads found matching your criteria</p>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Page {currentPage} of {totalPages}
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              disabled={currentPage === 1 || loading}
-              onClick={() => setCurrentPage(currentPage - 1)}
+      {filteredAndSortedLeads.length === 0 && (
+        <Card className="boi-card">
+          <CardContent className="text-center py-12">
+            <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No leads found</h3>
+            <p className="text-gray-600 mb-4">
+              Try adjusting your search criteria or filters
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setPriorityFilter('all');
+              }}
             >
-              Previous
+              Clear Filters
             </Button>
-            <Button
-              variant="outline"
-              disabled={currentPage === totalPages || loading}
-              onClick={() => setCurrentPage(currentPage + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

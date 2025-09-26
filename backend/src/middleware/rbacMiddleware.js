@@ -21,7 +21,11 @@ const ROLE_HIERARCHY = {
  */
 const requireRole = (allowedRoles) => {
   return (req, res, next) => {
+    console.log('🔒 RBAC Check - User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
+    console.log('🔒 RBAC Check - Required roles:', allowedRoles);
+    
     if (!req.user) {
+      console.log('❌ RBAC: No user authenticated');
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
@@ -33,6 +37,7 @@ const requireRole = (allowedRoles) => {
     const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
 
     if (!rolesArray.includes(userRole)) {
+      console.log('❌ RBAC: Permission denied -', { userRole, allowedRoles: rolesArray });
       return res.status(403).json({
         success: false,
         message: 'Insufficient permissions',
@@ -42,6 +47,7 @@ const requireRole = (allowedRoles) => {
       });
     }
 
+    console.log('✅ RBAC: Permission granted');
     next();
   };
 };

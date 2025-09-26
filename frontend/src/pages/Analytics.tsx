@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,20 +25,56 @@ import {
   Users,
   DollarSign,
   Target,
-  Award
+  Award,
+  Loader2
 } from 'lucide-react';
-import { mockAnalytics } from '@/data/mockData';
+import { leadService, type LeadStats } from '@/services/leadService';
 import { useRole } from '@/contexts/RoleContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Analytics: React.FC = () => {
   const { currentRole } = useRole();
+  const { toast } = useToast();
+  
+  const [analytics, setAnalytics] = useState<LeadStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Color scheme for charts
   const COLORS = ['#FF6B35', '#1E3A8A', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
+  // Fetch analytics data
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setIsLoading(true);
+        const response = await leadService.getLeadStats();
+        
+        if (response.success && response.data) {
+          setAnalytics(response.data);
+        } else {
+          throw new Error(response.message || 'Failed to fetch analytics data');
+        }
+      } catch (error: any) {
+        console.error('Error fetching analytics:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load analytics data. Please try again.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (currentRole === 'authority') {
+      fetchAnalytics();
+    }
+  }, [currentRole, toast]);
+
   const exportData = () => {
-    // Mock export functionality
-    const csvData = mockAnalytics.monthlyTrends.map(item => 
+    if (!analytics?.monthlyTrends) return;
+    
+    const csvData = analytics.monthlyTrends.map(item => 
       `${item.month},${item.leads},${item.converted}`
     ).join('\n');
     
@@ -60,6 +96,38 @@ const Analytics: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-2">Access Restricted</h3>
             <p className="text-gray-600">
               Analytics dashboard is available only for Higher Authority users.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="boi-card max-w-md">
+          <CardContent className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-spin" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Analytics</h3>
+            <p className="text-gray-600">
+              Fetching the latest data for your dashboard...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="boi-card max-w-md">
+          <CardContent className="text-center py-12">
+            <Award className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Data Unavailable</h3>
+            <p className="text-gray-600">
+              Unable to load analytics data. Please refresh the page.
             </p>
           </CardContent>
         </Card>
@@ -96,7 +164,7 @@ const Analytics: React.FC = () => {
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockAnalytics.totalLeads}</div>
+            <div className="text-2xl font-bold">{analytics.totalLeads}</div>
             <div className="flex items-center space-x-1 text-xs text-green-600">
               <TrendingUp className="w-3 h-3" />
               <span>+12% from last month</span>
@@ -110,7 +178,7 @@ const Analytics: React.FC = () => {
             <Target className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockAnalytics.conversionRate}%</div>
+            <div className="text-2xl font-bold">{analytics.conversionRate}%</div>
             <div className="flex items-center space-x-1 text-xs text-green-600">
               <TrendingUp className="w-3 h-3" />
               <span>+2.4% improvement</span>
@@ -124,7 +192,7 @@ const Analytics: React.FC = () => {
             <DollarSign className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockAnalytics.activeLeads}</div>
+            <div className="text-2xl font-bold">{analytics.activeLeads}</div>
             <div className="flex items-center space-x-1 text-xs text-orange-600">
               <TrendingDown className="w-3 h-3" />
               <span>-3 from yesterday</span>
@@ -138,7 +206,7 @@ const Analytics: React.FC = () => {
             <Award className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockAnalytics.avgProcessingTime} days</div>
+            <div className="text-2xl font-bold">{analytics.avgProcessingTime} days</div>
             <div className="flex items-center space-x-1 text-xs text-green-600">
               <TrendingUp className="w-3 h-3" />
               <span>1.2 days faster</span>
@@ -156,7 +224,7 @@ const Analytics: React.FC = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockAnalytics.monthlyTrends}>
+              <LineChart data={analytics.monthlyTrends}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
@@ -190,7 +258,7 @@ const Analytics: React.FC = () => {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={mockAnalytics.productDistribution}
+                  data={analytics.productDistribution}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -199,7 +267,7 @@ const Analytics: React.FC = () => {
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {mockAnalytics.productDistribution.map((entry, index) => (
+                  {analytics.productDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -219,7 +287,7 @@ const Analytics: React.FC = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockAnalytics.regionPerformance}>
+              <BarChart data={analytics.regionPerformance}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="region" />
                 <YAxis />
@@ -293,7 +361,7 @@ const Analytics: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {mockAnalytics.regionPerformance.map((region) => (
+                {analytics.regionPerformance.map((region) => (
                   <tr key={region.region} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">{region.region}</td>
                     <td className="px-4 py-3">{region.leads}</td>

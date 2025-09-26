@@ -1,0 +1,7 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="512" height="512" rx="64" fill="#FF6B35"/>
+<path d="M128 256V192C128 153.34 158.34 123 197 123H315C353.66 123 384 153.34 384 192V256" stroke="white" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="102" y="230" width="308" height="204" rx="20" fill="white" fill-opacity="0.95"/>
+<circle cx="256" cy="300" r="20" fill="#FF6B35"/>
+<text x="256" y="380" text-anchor="middle" fill="#FF6B35" font-family="Arial, sans-serif" font-size="32" font-weight="bold">LeadVault</text>
+</svg>

@@ -25,7 +25,9 @@
   "author": "LeadVault Team",
   "license": "MIT",
   "dependencies": {
+    "@types/nodemailer": "^7.0.1",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
@@ -33,6 +35,9 @@
     "helmet": "^6.1.5",
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^7.0.1",
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
+    "nodemailer": "^7.0.6",
     "validator": "^13.9.0"
   },
   "devDependencies": {

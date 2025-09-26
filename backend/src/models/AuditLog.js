@@ -29,7 +29,9 @@ const auditLogSchema = new mongoose.Schema({
       'Lead Rejected',
       'Lead Completed',
       'Priority Score Updated',
-      'AI Insight Generated'
+      'AI Insight Generated',
+      'Remarks Sent to Customer',
+      'Lead Reverted to Customer'
     ]
   },
   user: {
@@ -60,8 +62,8 @@ const auditLogSchema = new mongoose.Schema({
   ipAddress: {
     type: String,
     trim: true,
-    default: null,
-    match: [/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}$/, 'Invalid IP address']
+    default: null
+    // Removed IP validation for flexibility in dev/prod environments
   },
   userAgent: {
     type: String,

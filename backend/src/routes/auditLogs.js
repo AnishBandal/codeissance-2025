@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const AuditLog = require('../models/AuditLog');
-const authMiddleware = require('../middleware/authMiddleware');
+const { authenticateToken } = require('../middleware/authMiddleware');
 const rbacMiddleware = require('../middleware/rbacMiddleware');
 
 /**
  * GET /api/audit-logs - Get audit logs with filtering
  */
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const { 
       leadId, 
@@ -82,7 +82,7 @@ router.get('/', authMiddleware, async (req, res) => {
 /**
  * GET /api/audit-logs/lead/:leadId - Get audit logs for specific lead
  */
-router.get('/lead/:leadId', authMiddleware, async (req, res) => {
+router.get('/lead/:leadId', authenticateToken, async (req, res) => {
   try {
     const { leadId } = req.params;
     const { limit = 100 } = req.query;
@@ -120,7 +120,7 @@ router.get('/lead/:leadId', authMiddleware, async (req, res) => {
 /**
  * GET /api/audit-logs/recent - Get recent audit logs across system
  */
-router.get('/recent', authMiddleware, rbacMiddleware.requireRole(['Higher Authority', 'Nodal Officer']), async (req, res) => {
+router.get('/recent', authenticateToken, rbacMiddleware.requireRole(['Higher Authority', 'Nodal Officer']), async (req, res) => {
   try {
     const { limit = 50, actions } = req.query;
     
@@ -160,7 +160,7 @@ router.get('/recent', authMiddleware, rbacMiddleware.requireRole(['Higher Author
 /**
  * GET /api/audit-logs/user/:userId - Get audit logs for specific user
  */
-router.get('/user/:userId', authMiddleware, rbacMiddleware.requireRole(['Higher Authority', 'Nodal Officer']), async (req, res) => {
+router.get('/user/:userId', authenticateToken, rbacMiddleware.requireRole(['Higher Authority', 'Nodal Officer']), async (req, res) => {
   try {
     const { userId } = req.params;
     const { limit = 100 } = req.query;
@@ -199,7 +199,7 @@ router.get('/user/:userId', authMiddleware, rbacMiddleware.requireRole(['Higher 
 /**
  * GET /api/audit-logs/stats - Get audit log statistics
  */
-router.get('/stats', authMiddleware, rbacMiddleware.requireRole(['Higher Authority', 'Nodal Officer']), async (req, res) => {
+router.get('/stats', authenticateToken, rbacMiddleware.requireRole(['Higher Authority', 'Nodal Officer']), async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const startDate = new Date(Date.now() - parseInt(days) * 24 * 60 * 60 * 1000);

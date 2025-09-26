@@ -1,49 +1,42 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, mockUsers } from '@/data/mockData';
+// Compatibility hook for components that still use the old RoleContext
+// This allows gradual migration to the new AuthContext
+
+import { useAuth } from './AuthContext';
 
 type Role = 'processing' | 'nodal' | 'authority';
 
-interface RoleContextType {
-  currentRole: Role;
-  currentUser: User;
-  setRole: (role: Role) => void;
-}
+export const useRole = () => {
+  const { user, role } = useAuth();
 
-const RoleContext = createContext<RoleContextType | undefined>(undefined);
-
-interface RoleProviderProps {
-  children: ReactNode;
-}
-
-export const RoleProvider: React.FC<RoleProviderProps> = ({ children }) => {
-  const [currentRole, setCurrentRole] = useState<Role>('processing');
-
-  useEffect(() => {
-    // Load saved role from localStorage
-    const savedRole = localStorage.getItem('boi-current-role') as Role;
-    if (savedRole && mockUsers[savedRole]) {
-      setCurrentRole(savedRole);
-    }
-  }, []);
-
-  const setRole = (role: Role) => {
-    setCurrentRole(role);
-    localStorage.setItem('boi-current-role', role);
+  // Map new roles to old role format for compatibility
+  const currentRole: Role = role || 'processing';
+  
+  // Create a user object in the old format
+  const currentUser = {
+    name: user?.username || 'Unknown User',
+    roleTitle: (() => {
+      switch (role) {
+        case 'authority':
+          return 'Higher Authority';
+        case 'nodal':
+          return 'Nodal Officer';
+        case 'processing':
+          return 'Processing Staff';
+        default:
+          return 'Unknown Role';
+      }
+    })(),
+    region: user?.zone || 'Unknown Region'
   };
 
-  const currentUser = mockUsers[currentRole];
+  // Mock setRole function for compatibility (no-op)
+  const setRole = () => {
+    console.warn('setRole is deprecated. User roles are now managed through authentication.');
+  };
 
-  return (
-    <RoleContext.Provider value={{ currentRole, currentUser, setRole }}>
-      {children}
-    </RoleContext.Provider>
-  );
-};
-
-export const useRole = () => {
-  const context = useContext(RoleContext);
-  if (context === undefined) {
-    throw new Error('useRole must be used within a RoleProvider');
-  }
-  return context;
+  return {
+    currentRole,
+    currentUser,
+    setRole
+  };
 };

@@ -30,7 +30,7 @@ const leadSchema = new mongoose.Schema({
   },
   productType: {
     type: String,
-    enum: ["Loan", "Credit Card", "Account", "Insurance", "Investment", "Mortgage"],
+    enum: ["Home Loan", "Car Loan", "Personal Loan", "Business Loan", "Education Loan", "Gold Loan", "Credit Card", "Account", "Insurance", "Investment", "Mortgage"],
     required: true
   },
   // Keep salary for backend logic, but also add customerIncome for frontend
@@ -101,8 +101,44 @@ const leadSchema = new mongoose.Schema({
     default: null
   },
   documents: [{
-    type: String,
-    trim: true
+    filename: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    originalName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    url: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    publicId: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    size: {
+      type: Number,
+      required: true
+    },
+    mimetype: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    },
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    }
   }],
   createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 

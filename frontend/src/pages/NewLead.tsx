@@ -15,6 +15,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRole } from '@/contexts/RoleContext';
+import { leadService, type CreateLeadRequest } from '@/services/leadService';
+import { uploadService, type CreateLeadWithFilesRequest } from '@/services/uploadService';
+import FileUpload from '@/components/ui/FileUpload';
 import { 
   User, 
   Phone, 
@@ -24,7 +27,9 @@ import {
   FileText,
   Save,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Upload
 } from 'lucide-react';
 
 interface LeadFormData {
@@ -60,6 +65,7 @@ const NewLead: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiScore, setAiScore] = useState<number | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // Mock AI scoring based on form data
   const calculateAiScore = () => {
@@ -113,48 +119,86 @@ const NewLead: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Mock form validation
-    if (!formData.customerName || !formData.phone || !formData.email || !formData.productType) {
+    try {
+      // Form validation - check required fields matching backend
+      if (!formData.customerName || !formData.email || !formData.phone || !formData.productType || !formData.customerIncome || !formData.customerAge || !formData.customerOccupation) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields: Name, Email, Phone, Product Type, Income, Age, and Occupation",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare data for backend API  
+      const leadData: CreateLeadRequest = {
+        customerName: formData.customerName,
+        phone: formData.phone || '',
+        email: formData.email,
+        productType: formData.productType,
+        loanAmount: formData.loanAmount,
+        customerAge: parseInt(formData.customerAge) || 0,
+        customerOccupation: formData.customerOccupation || '',
+        customerIncome: formData.customerIncome,
+        salary: parseFloat(formData.customerIncome.replace(/[^\d.]/g, '')) || 0,
+        // Generate realistic credit score (300-850 range) based on income and age
+        creditScore: Math.min(Math.max(
+          300 + Math.floor((parseFloat(formData.customerIncome.replace(/[^\d.]/g, '')) || 0) / 10000) + 
+          (parseInt(formData.customerAge) >= 25 && parseInt(formData.customerAge) <= 55 ? 50 : 0) +
+          Math.floor(Math.random() * 100), 300), 850),
+        region: formData.region || currentUser.region || '',
+        status: 'New'
+      };
+
+      // Create lead via backend API (with or without files)
+      let response;
+      if (selectedFiles.length > 0) {
+        // Create lead with files
+        const leadWithFilesData: CreateLeadWithFilesRequest = {
+          customerName: leadData.customerName,
+          email: leadData.email,
+          phone: leadData.phone,
+          productType: leadData.productType,
+          salary: leadData.salary,
+          customerIncome: leadData.customerIncome || '',
+          creditScore: leadData.creditScore,
+          customerAge: leadData.customerAge,
+          customerOccupation: leadData.customerOccupation,
+          loanAmount: leadData.loanAmount,
+          region: leadData.region,
+          status: leadData.status,
+          documents: selectedFiles
+        };
+        response = await uploadService.createLeadWithFiles(leadWithFilesData);
+        
+        toast({
+          title: "Lead Created Successfully!",
+          description: `Lead has been created with ${selectedFiles.length} document(s) uploaded and assigned score of ${response.data.lead.priorityScore}`,
+        });
+      } else {
+        // Create lead without files
+        response = await leadService.createLead(leadData);
+        
+        toast({
+          title: "Lead Created Successfully!",
+          description: `Lead has been created with ID ${response.data.lead._id || response.data.lead.id} and assigned score of ${response.data.lead.priorityScore}`,
+        });
+      }
+
+      // Navigate back to leads list
+      navigate('/leads');
+
+    } catch (error) {
+      console.error('Error creating lead:', error);
       toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
+        title: "Error Creating Lead",
+        description: error instanceof Error ? error.message : "Failed to create lead. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Generate mock lead ID
-    const leadId = `LD${String(Date.now()).slice(-3)}`;
-
-    // Mock save to localStorage (in real app would be API call)
-    const existingLeads = JSON.parse(localStorage.getItem('boi-leads') || '[]');
-    const newLead = {
-      id: leadId,
-      ...formData,
-      status: 'New',
-      priorityScore: aiScore || 60,
-      assignedTo: currentUser.name,
-      createdDate: new Date().toISOString().split('T')[0],
-      lastUpdated: new Date().toISOString().split('T')[0],
-      creditScore: 0, // Will be updated later
-      aiInsight: `New lead created by ${currentUser.name}. ${aiScore ? `AI Priority Score: ${aiScore}` : 'Pending assessment.'}`,
-      documents: []
-    };
-
-    existingLeads.push(newLead);
-    localStorage.setItem('boi-leads', JSON.stringify(existingLeads));
-
-    toast({
-      title: "Lead Created Successfully!",
-      description: `Lead ${leadId} has been created and assigned priority score of ${aiScore || 60}`,
-    });
-
-    setIsSubmitting(false);
-    navigate('/leads');
   };
 
   const getScoreBadge = (score: number) => {
@@ -341,6 +385,14 @@ const NewLead: React.FC = () => {
               </CardContent>
             </Card>
 
+            {/* Document Upload */}
+            <FileUpload
+              onFilesChange={setSelectedFiles}
+              maxFiles={10}
+              maxSizePerFile={10}
+              className="mb-6"
+            />
+
             {/* Submit Button */}
             <div className="flex space-x-4">
               <Button 
@@ -349,7 +401,10 @@ const NewLead: React.FC = () => {
                 className="bg-orange-600 hover:bg-orange-700 flex-1"
               >
                 {isSubmitting ? (
-                  <>Processing...</>
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating Lead...
+                  </>
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />

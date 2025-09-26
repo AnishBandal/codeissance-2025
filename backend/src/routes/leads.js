@@ -24,6 +24,44 @@ router.get('/stats',
   leadController.getLeadStats
 );
 
+// Specific routes should come before generic /:id route
+/**
+ * @route   POST /api/leads/:id/assign
+ * @desc    Assign lead to user
+ * @access  Private (Nodal Officer and Higher Authority)
+ */
+router.post('/:id/assign',
+  authenticateToken,
+  requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
+  leadController.assignLead
+);
+
+/**
+ * @route   PUT /api/leads/:id/revert
+ * @desc    Revert lead to customer
+ * @access  Private (Nodal Officer and Higher Authority)
+ */
+router.put('/:id/revert',
+  authenticateToken,
+  requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
+  leadController.revertLeadToCustomer
+);
+
+/**
+ * @route   POST /api/leads/:id/send-remarks
+ * @desc    Send remarks to customer with email notification
+ * @access  Private (All roles can send remarks)
+ */
+router.post('/:id/send-remarks',
+  (req, res, next) => {
+    console.log('🎯 Send remarks route hit:', req.params.id, req.body);
+    next();
+  },
+  authenticateToken,
+  requireRole([ROLES.PROCESSING_STAFF, ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
+  leadController.sendRemarksToCustomer
+);
+
 /**
  * @route   GET /api/leads/:id
  * @desc    Get single lead by ID
@@ -46,6 +84,32 @@ router.post('/',
 );
 
 /**
+ * @route   POST /api/leads/with-files
+ * @desc    Create new lead with file uploads
+ * @access  Private (All roles can create leads)
+ */
+router.post('/with-files',
+  authenticateToken,
+  requireRole([ROLES.PROCESSING_STAFF, ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
+  (req, res, next) => {
+    // Import multer upload here to avoid circular dependency
+    const { uploadMultiple } = require('../config/cloudinary');
+    uploadMultiple(req, res, (err) => {
+      if (err) {
+        console.error('File upload middleware error:', err);
+        return res.status(400).json({
+          success: false,
+          message: err.message || 'File upload failed',
+          error: 'UPLOAD_ERROR'
+        });
+      }
+      next();
+    });
+  },
+  leadController.createLeadWithFiles
+);
+
+/**
  * @route   PATCH /api/leads/:id
  * @desc    Update lead
  * @access  Private (Role-based permissions)
@@ -55,16 +119,7 @@ router.patch('/:id',
   leadController.updateLead
 );
 
-/**
- * @route   POST /api/leads/:id/assign
- * @desc    Assign lead to user
- * @access  Private (Nodal Officer and Higher Authority)
- */
-router.post('/:id/assign',
-  authenticateToken,
-  requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
-  leadController.assignLead
-);
+// Duplicate routes moved above - removing these duplicates
 
 /**
  * @route   DELETE /api/leads/:id

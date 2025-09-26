@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useRole } from '@/contexts/RoleContext';
-import { mockLeads, mockAuditLogs, Lead } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { leadService, type BackendLead } from '@/services/leadService';
 import { 
   ArrowLeft, 
   Edit,
@@ -33,24 +33,232 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Sparkles
+  Sparkles,
+  Send,
+  Loader2,
+  Eye,
+  Download
 } from 'lucide-react';
 
 const LeadDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currentRole, currentUser } = useRole();
+  const { user, role } = useAuth();
   
+  const [lead, setLead] = useState<BackendLead | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Find the lead
-  const lead = mockLeads.find(l => l.id === id);
+  const [isReverting, setIsReverting] = useState(false);
+  const [remarks, setRemarks] = useState('');
+  const [isSendingRemarks, setIsSendingRemarks] = useState(false);
   
-  const [editedLead, setEditedLead] = useState<Lead | null>(lead || null);
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    customerName: '',
+    email: '',
+    phone: '',
+    productType: '',
+    status: '',
+    loanAmount: '',
+    customerAge: 0,
+    customerOccupation: '',
+    customerIncome: '',
+    region: '',
+    aiInsight: ''
+  });
 
-  if (!lead || !editedLead) {
+  // Load lead data
+  useEffect(() => {
+    const fetchLead = async () => {
+      if (!id) return;
+      
+      try {
+        setIsLoading(true);
+        const response = await leadService.getLeadById(id);
+        if (response.success) {
+          const leadData = response.data.lead;
+          setLead(leadData);
+          
+          // Initialize edit form
+          setEditForm({
+            customerName: leadData.customerName || '',
+            email: leadData.email || '',
+            phone: leadData.phone || '',
+            productType: leadData.productType || '',
+            status: leadData.status || '',
+            loanAmount: leadData.loanAmount || '',
+            customerAge: leadData.customerAge || 0,
+            customerOccupation: leadData.customerOccupation || '',
+            customerIncome: leadData.customerIncome || '',
+            region: leadData.region || '',
+            aiInsight: leadData.aiInsight || ''
+          });
+        } else {
+          console.error('API Response Error:', response);
+          throw new Error(response.message || 'Failed to fetch lead');
+        }
+      } catch (error) {
+        console.error('Error fetching lead:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load lead details. Please try again.",
+          variant: "destructive",
+        });
+        navigate('/leads');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLead();
+  }, [id, navigate, toast]);
+
+  const handleSave = async () => {
+    if (!id) return;
+    
+    setIsSaving(true);
+    try {
+      const response = await leadService.updateLead(id, editForm);
+      if (response.success) {
+        setLead(response.data.lead);
+        
+        const emailStatus = response.data.emailSent ? 'Email notification sent to customer' : 'Email notification failed';
+        
+        toast({
+          title: "Lead Updated Successfully",
+          description: `Lead information has been updated. ${emailStatus}`,
+        });
+        setIsEditing(false);
+      } else {
+        throw new Error(response.message || 'Failed to update lead');
+      }
+    } catch (error) {
+      console.error('Error updating lead:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update lead. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRevertToCustomer = async () => {
+    if (!id) return;
+    
+    const reason = prompt("Please provide a reason for reverting this lead to the customer:");
+    if (!reason) return;
+    
+    setIsReverting(true);
+    
+    try {
+      const response = await leadService.revertLeadToCustomer(id, reason);
+      
+      if (response.success) {
+        toast({
+          title: "Lead Reverted",
+          description: `Lead has been reverted to customer. Email notification: ${response.data.emailSent ? 'Sent' : 'Failed'}`,
+        });
+        
+        // Update local lead state
+        setLead(response.data.lead);
+      } else {
+        throw new Error(response.message || 'Failed to revert lead');
+      }
+    } catch (error) {
+      console.error('Error reverting lead:', error);
+      toast({
+        title: "Error",
+        description: "Failed to revert lead to customer. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReverting(false);
+    }
+  };
+
+  const handleSendRemarks = async () => {
+    if (!id || !remarks.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter some remarks before sending.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSendingRemarks(true);
+    
+    try {
+      console.log('🚀 Sending remarks to customer:', { id, remarks: remarks.trim() });
+      const response = await leadService.sendRemarksToCustomer(id, remarks.trim());
+      console.log('📧 Send remarks response:', response);
+      
+      if (response.success) {
+        toast({
+          title: "Remarks Sent",
+          description: `Remarks have been sent to customer. Email notification: ${response.data.emailSent ? 'Sent' : 'Failed'}`,
+        });
+        
+        // Clear the remarks after successful send
+        setRemarks('');
+        
+        // Update local lead state if needed
+        if (response.data.lead) {
+          setLead(response.data.lead);
+        }
+      } else {
+        throw new Error(response.message || 'Failed to send remarks');
+      }
+    } catch (error: any) {
+      console.error('❌ Error sending remarks:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || error.message || "Failed to send remarks to customer. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingRemarks(false);
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'New': return 'bg-blue-100 text-blue-800';
+      case 'In Progress': return 'bg-yellow-100 text-yellow-800';
+      case 'Under Review': return 'bg-orange-100 text-orange-800';
+      case 'Approved': return 'bg-green-100 text-green-800';
+      case 'Rejected': return 'bg-red-100 text-red-800';
+      case 'Completed': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="boi-card max-w-md">
+          <CardContent className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-spin" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Lead Details</h3>
+            <p className="text-gray-600">Please wait while we fetch the lead information...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!lead) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Card className="boi-card max-w-md">
@@ -70,89 +278,36 @@ const LeadDetail: React.FC = () => {
     );
   }
 
-  // Get audit logs for this lead
-  const leadAuditLogs = mockAuditLogs.filter(log => log.leadId === lead.id);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    
-    // Mock save operation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast({
-      title: "Lead Updated",
-      description: "Lead information has been successfully updated",
-    });
-    
-    setIsEditing(false);
-    setIsSaving(false);
-  };
-
-  const handleStatusChange = (newStatus: string) => {
-    setEditedLead(prev => prev ? { ...prev, status: newStatus as Lead['status'] } : null);
-  };
-
-  const handleAssignment = (newAssignee: string) => {
-    setEditedLead(prev => prev ? { ...prev, assignedTo: newAssignee } : null);
-  };
-
-  const getPriorityBadge = (score: number) => {
-    if (score >= 80) {
-      return <Badge variant="destructive" className="text-sm">High Priority</Badge>;
-    } else if (score >= 60) {
-      return <Badge variant="default" className="text-sm">Medium Priority</Badge>;
-    } else {
-      return <Badge variant="secondary" className="text-sm">Low Priority</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusColors: Record<string, string> = {
-      'New': 'bg-blue-100 text-blue-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
-      'Under Review': 'bg-purple-100 text-purple-800',
-      'Approved': 'bg-green-100 text-green-800',
-      'Rejected': 'bg-red-100 text-red-800',
-      'Completed': 'bg-gray-100 text-gray-800'
-    };
-    
-    return (
-      <Badge variant="outline" className={`text-sm ${statusColors[status] || ''}`}>
-        {status}
-      </Badge>
-    );
-  };
-
-  const canEdit = currentRole === 'processing' || currentRole === 'nodal';
-  const canAssign = currentRole === 'nodal' || currentRole === 'authority';
-
   return (
-    <div className="space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 boi-background">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate('/leads')}>
+          <Button variant="outline" onClick={() => navigate('/leads')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Leads
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lead Details - {lead.id}</h1>
-            <p className="text-gray-600">{lead.customerName}</p>
+            <h1 className="text-2xl font-bold text-gray-900">Lead Details - {lead._id}</h1>
+            <p className="text-gray-600">Manage and track lead information</p>
           </div>
         </div>
-        
-        <div className="flex space-x-2">
-          {canEdit && (
+
+        <div className="flex items-center space-x-3">
+          <Badge className={`${getStatusBadgeColor(lead.status)} px-3 py-1`}>
+            {lead.status}
+          </Badge>
+          
+          {user && (role === 'nodal' || role === 'processing') && (
             <>
               {isEditing ? (
                 <div className="flex space-x-2">
-                  <Button 
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="bg-orange-600 hover:bg-orange-700"
-                  >
+                  <Button onClick={handleSave} disabled={isSaving}>
                     {isSaving ? (
-                      <>Saving...</>
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
                     ) : (
                       <>
                         <Save className="w-4 h-4 mr-2" />
@@ -165,10 +320,31 @@ const LeadDetail: React.FC = () => {
                   </Button>
                 </div>
               ) : (
-                <Button onClick={() => setIsEditing(true)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Lead
-                </Button>
+                <div className="flex space-x-2">
+                  <Button onClick={() => setIsEditing(true)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Lead
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={handleRevertToCustomer}
+                    disabled={isReverting}
+                    className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                  >
+                    {isReverting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Reverting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Revert to Customer
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </>
           )}
@@ -192,8 +368,8 @@ const LeadDetail: React.FC = () => {
                   <Label htmlFor="customerName">Full Name</Label>
                   <Input
                     id="customerName"
-                    value={editedLead.customerName}
-                    onChange={(e) => setEditedLead(prev => prev ? { ...prev, customerName: e.target.value } : null)}
+                    value={isEditing ? editForm.customerName : lead.customerName}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, customerName: e.target.value }))}
                     disabled={!isEditing}
                   />
                 </div>
@@ -201,8 +377,8 @@ const LeadDetail: React.FC = () => {
                   <Label htmlFor="customerAge">Age</Label>
                   <Input
                     id="customerAge"
-                    value={editedLead.customerAge}
-                    onChange={(e) => setEditedLead(prev => prev ? { ...prev, customerAge: parseInt(e.target.value) } : null)}
+                    value={isEditing ? editForm.customerAge : lead.customerAge}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, customerAge: parseInt(e.target.value) }))}
                     disabled={!isEditing}
                     type="number"
                   />
@@ -213,11 +389,11 @@ const LeadDetail: React.FC = () => {
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Phone className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
                     <Input
                       id="phone"
-                      value={editedLead.phone}
-                      onChange={(e) => setEditedLead(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                      value={isEditing ? editForm.phone : lead.phone}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
                       disabled={!isEditing}
                       className="pl-10"
                     />
@@ -226,11 +402,11 @@ const LeadDetail: React.FC = () => {
                 <div>
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Mail className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
                     <Input
                       id="email"
-                      value={editedLead.email}
-                      onChange={(e) => setEditedLead(prev => prev ? { ...prev, email: e.target.value } : null)}
+                      value={isEditing ? editForm.email : lead.email}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
                       disabled={!isEditing}
                       className="pl-10"
                     />
@@ -243,23 +419,19 @@ const LeadDetail: React.FC = () => {
                   <Label htmlFor="occupation">Occupation</Label>
                   <Input
                     id="occupation"
-                    value={editedLead.customerOccupation}
-                    onChange={(e) => setEditedLead(prev => prev ? { ...prev, customerOccupation: e.target.value } : null)}
+                    value={isEditing ? editForm.customerOccupation : lead.customerOccupation}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, customerOccupation: e.target.value }))}
                     disabled={!isEditing}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="income">Annual Income</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="income"
-                      value={editedLead.customerIncome}
-                      onChange={(e) => setEditedLead(prev => prev ? { ...prev, customerIncome: e.target.value } : null)}
-                      disabled={!isEditing}
-                      className="pl-10"
-                    />
-                  </div>
+                  <Label htmlFor="income">Monthly Income</Label>
+                  <Input
+                    id="income"
+                    value={isEditing ? editForm.customerIncome : lead.customerIncome}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, customerIncome: e.target.value }))}
+                    disabled={!isEditing}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -269,7 +441,7 @@ const LeadDetail: React.FC = () => {
           <Card className="boi-card">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Building2 className="w-5 h-5 mr-2 text-orange-600" />
+                <DollarSign className="w-5 h-5 mr-2 text-green-600" />
                 Loan Information
               </CardTitle>
             </CardHeader>
@@ -278,20 +450,19 @@ const LeadDetail: React.FC = () => {
                 <div>
                   <Label htmlFor="productType">Product Type</Label>
                   <Select 
-                    value={editedLead.productType} 
-                    onValueChange={(value) => setEditedLead(prev => prev ? { ...prev, productType: value } : null)}
+                    value={isEditing ? editForm.productType : lead.productType} 
+                    onValueChange={(value) => setEditForm(prev => ({ ...prev, productType: value }))}
                     disabled={!isEditing}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select product type" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="Personal Loan">Personal Loan</SelectItem>
                       <SelectItem value="Home Loan">Home Loan</SelectItem>
                       <SelectItem value="Car Loan">Car Loan</SelectItem>
-                      <SelectItem value="Personal Loan">Personal Loan</SelectItem>
                       <SelectItem value="Business Loan">Business Loan</SelectItem>
                       <SelectItem value="Education Loan">Education Loan</SelectItem>
-                      <SelectItem value="Gold Loan">Gold Loan</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -299,8 +470,8 @@ const LeadDetail: React.FC = () => {
                   <Label htmlFor="loanAmount">Loan Amount</Label>
                   <Input
                     id="loanAmount"
-                    value={editedLead.loanAmount}
-                    onChange={(e) => setEditedLead(prev => prev ? { ...prev, loanAmount: e.target.value } : null)}
+                    value={isEditing ? editForm.loanAmount : lead.loanAmount}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, loanAmount: e.target.value }))}
                     disabled={!isEditing}
                   />
                 </div>
@@ -311,160 +482,78 @@ const LeadDetail: React.FC = () => {
                   <Label htmlFor="region">Region</Label>
                   <Input
                     id="region"
-                    value={editedLead.region}
-                    onChange={(e) => setEditedLead(prev => prev ? { ...prev, region: e.target.value } : null)}
+                    value={isEditing ? editForm.region : lead.region}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, region: e.target.value }))}
                     disabled={!isEditing}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="creditScore">Credit Score</Label>
-                  <Input
-                    id="creditScore"
-                    value={editedLead.creditScore}
-                    onChange={(e) => setEditedLead(prev => prev ? { ...prev, creditScore: parseInt(e.target.value) } : null)}
+                  <Label htmlFor="status">Status</Label>
+                  <Select 
+                    value={isEditing ? editForm.status : lead.status} 
+                    onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}
                     disabled={!isEditing}
-                    type="number"
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="New">New</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Under Review">Under Review</SelectItem>
+                      <SelectItem value="Approved">Approved</SelectItem>
+                      <SelectItem value="Rejected">Rejected</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Audit Trail */}
-          <Card className="boi-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <History className="w-5 h-5 mr-2 text-purple-600" />
-                Activity Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {leadAuditLogs.map((log) => (
-                  <div key={log.id} className="flex items-start space-x-3 pb-4 border-b border-gray-100 last:border-b-0">
-                    <div className="flex-shrink-0 mt-1">
-                      {log.action === 'Lead Created' && <CheckCircle className="w-4 h-4 text-green-600" />}
-                      {log.action === 'Status Updated' && <Clock className="w-4 h-4 text-blue-600" />}
-                      {log.action === 'Assignment Changed' && <UserCheck className="w-4 h-4 text-orange-600" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="font-medium text-gray-900">{log.action}</span>
-                        <span className="text-sm text-gray-500">by {log.user}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{log.details}</p>
-                      <div className="flex items-center space-x-1 text-xs text-gray-500">
-                        <Calendar className="w-3 h-3" />
-                        <span>{new Date(log.timestamp).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Admin/Officer Remarks */}
+          {user && (role === 'authority' || role === 'nodal' || role === 'processing') && (
+            <Card className="boi-card">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                  Send Remarks to Customer
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={4}
+                  className="w-full"
+                  placeholder="Enter remarks or updates for the customer..."
+                />
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleSendRemarks}
+                    disabled={isSendingRemarks || !remarks.trim()}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isSendingRemarks ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Remarks
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Status & Priority */}
-          <Card className="boi-card">
-            <CardHeader>
-              <CardTitle>Status & Priority</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Current Status</Label>
-                <div className="mt-2">
-                  {canEdit && isEditing ? (
-                    <Select value={editedLead.status} onValueChange={handleStatusChange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="New">New</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Under Review">Under Review</SelectItem>
-                        <SelectItem value="Approved">Approved</SelectItem>
-                        <SelectItem value="Rejected">Rejected</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    getStatusBadge(editedLead.status)
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label>Priority Level</Label>
-                <div className="mt-2 flex items-center space-x-2">
-                  {getPriorityBadge(editedLead.priorityScore)}
-                  <span className="text-sm text-gray-600">({editedLead.priorityScore})</span>
-                </div>
-              </div>
-
-              {canAssign && (
-                <div>
-                  <Label>Assigned To</Label>
-                  <div className="mt-2">
-                    {isEditing ? (
-                      <Select value={editedLead.assignedTo} onValueChange={handleAssignment}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Amit Singh">Amit Singh</SelectItem>
-                          <SelectItem value="Priya Sharma">Priya Sharma</SelectItem>
-                          <SelectItem value="Rajesh Gupta">Rajesh Gupta</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant="outline" className="text-sm">
-                        {editedLead.assignedTo}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* AI Insights */}
-          <Card className="boi-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
-                AI Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <p className="text-sm text-purple-800 font-medium mb-1">Risk Assessment</p>
-                <p className="text-xs text-purple-700">{editedLead.aiInsight}</p>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Credit Score:</span>
-                  <span className={`font-medium ${editedLead.creditScore >= 700 ? 'text-green-600' : 'text-orange-600'}`}>
-                    {editedLead.creditScore}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Age Factor:</span>
-                  <span className="font-medium">
-                    {editedLead.customerAge >= 25 && editedLead.customerAge <= 45 ? 'Optimal' : 'Standard'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Income Level:</span>
-                  <span className="font-medium text-green-600">Good</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Documents */}
           <Card className="boi-card">
             <CardHeader>
@@ -474,14 +563,59 @@ const LeadDetail: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {editedLead.documents.map((doc, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm">{doc}</span>
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                ))}
-              </div>
+              {lead.documents && Array.isArray(lead.documents) && lead.documents.length > 0 ? (
+                <div className="space-y-2">
+                  {lead.documents.map((doc, index) => {
+                    // Handle both string URLs and document objects
+                    let documentUrl = '';
+                    let documentName = '';
+                    
+                    if (typeof doc === 'string') {
+                      documentUrl = doc;
+                      documentName = doc.split('/').pop() || 'Document';
+                    } else if (doc && typeof doc === 'object') {
+                      documentUrl = doc.url || '';
+                      documentName = doc.originalName || doc.filename || 'Document';
+                    }
+                    
+                    if (!documentUrl) return null;
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-medium">{documentName}</span>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => window.open(documentUrl, '_blank')}
+                            title="View Document"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = documentUrl;
+                              link.download = documentName;
+                              link.click();
+                            }}
+                            title="Download Document"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }).filter(Boolean)}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-4">No documents uploaded</p>
+              )}
             </CardContent>
           </Card>
 
@@ -493,17 +627,48 @@ const LeadDetail: React.FC = () => {
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span>Created Date:</span>
-                <span className="font-medium">{editedLead.createdDate}</span>
+                <span className="font-medium">{new Date(lead.createdAt).toLocaleDateString()}</span>
               </div>
               <div className="flex justify-between">
                 <span>Last Updated:</span>
-                <span className="font-medium">{editedLead.lastUpdated}</span>
+                <span className="font-medium">{new Date(lead.updatedAt).toLocaleDateString()}</span>
               </div>
               <div className="flex justify-between">
-                <span>Processing Time:</span>
+                <span>Days Since Creation:</span>
                 <span className="font-medium">
-                  {Math.ceil((new Date().getTime() - new Date(editedLead.createdDate).getTime()) / (1000 * 3600 * 24))} days
+                  {Math.ceil((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24))} days
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Priority Score:</span>
+                <span className="font-medium">{lead.priorityScore}/100</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Credit Score:</span>
+                <span className="font-medium">{lead.creditScore}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Assignment */}
+          <Card className="boi-card">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <UserCheck className="w-5 h-5 mr-2 text-indigo-600" />
+                Assignment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Assigned To:</span>
+                <span className="font-medium text-sm">
+                  {typeof lead.assignedTo === 'object' ? lead.assignedTo.username : lead.assignedTo || 'Unassigned'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Created By:</span>
+                <span className="font-medium text-sm">{lead.createdBy.username}</span>
               </div>
             </CardContent>
           </Card>
