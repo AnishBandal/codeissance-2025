@@ -26,9 +26,15 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS configuration
+// CORS configuration (support array + dynamic validation)
+const allowedOrigins = Array.isArray(config.CORS_ORIGIN) ? config.CORS_ORIGIN : [config.CORS_ORIGIN];
 app.use(cors({
-  origin: config.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // same-origin or non-browser
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn('Blocked CORS origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -62,6 +68,7 @@ app.use('/api/leads', leadsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/leads', require('./routes/leadSync')); // Added for offline sync support
 
 // 404 handler
 app.use('*', (req, res) => {

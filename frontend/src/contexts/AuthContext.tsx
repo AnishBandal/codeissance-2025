@@ -150,7 +150,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Validate token and get user profile
+      // Check if we're offline
+      if (!navigator.onLine) {
+        console.log('📴 Device is offline, using cached auth data');
+        // Try to load user data from localStorage
+        const cachedUser = localStorage.getItem('leadvault_user');
+        
+        if (cachedUser) {
+          try {
+            const userData = JSON.parse(cachedUser) as AuthUser;
+            console.log('✅ Using cached user data:', userData.username, 'Role:', userData.role);
+            dispatch({ 
+              type: 'AUTH_SUCCESS', 
+              payload: { 
+                user: userData, 
+                token 
+              } 
+            });
+            return; // Exit early - we're authenticated from cache
+          } catch (err) {
+            console.error('Failed to parse cached user data', err);
+            // Continue to online flow as fallback
+          }
+        }
+      }
+
+      // Online flow - validate token and get user profile
       console.log('📡 Fetching user profile...');
       const response = await authService.getProfile();
       console.log('👤 Profile response:', response);
@@ -158,6 +183,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.success && response.data && response.data.user) {
         const userData = response.data.user;
         console.log('✅ User authenticated:', userData.username, 'Role:', userData.role);
+        // Store the full user data in localStorage for offline use
+        localStorage.setItem('leadvault_user', JSON.stringify(userData));
+        
         dispatch({ 
           type: 'AUTH_SUCCESS', 
           payload: { 

@@ -10,7 +10,7 @@ import {
   Download,
   Users,
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRole } from '@/contexts/RoleContext';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -23,7 +23,7 @@ interface NavItem {
 
 const navigationItems: NavItem[] = [
   {
-    path: '/dashboard',
+    path: '/',
     label: 'Dashboard',
     icon: LayoutDashboard,
     roles: ['processing', 'nodal', 'authority'],
@@ -65,66 +65,41 @@ const navigationItems: NavItem[] = [
     icon: Download,
     roles: ['nodal', 'authority'],
   },
-  {
-    path: '/users',
-    label: 'User Management',
-    icon: Users,
-    roles: ['nodal', 'authority'],
-  },
 ];
 
 const Sidebar: React.FC = () => {
-  const { role, canAccessRoute } = useAuth();
+  const { currentRole } = useRole();
 
   const filteredItems = navigationItems.filter(item => 
-    role && item.roles.includes(role)
+    item.roles.includes(currentRole)
   );
-
-  // Get dashboard path based on role
-  const getDashboardPath = () => {
-    switch (role) {
-      case 'authority':
-        return '/admin/dashboard';
-      case 'nodal':
-        return '/nodal/dashboard';
-      case 'processing':
-        return '/staff/dashboard';
-      default:
-        return '/dashboard';
-    }
-  };
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 shadow-sm min-h-screen">
       <nav className="p-4 space-y-2">
-        {filteredItems.map((item) => {
-          // Use role-specific dashboard path for dashboard item
-          const itemPath = item.path === '/dashboard' ? getDashboardPath() : item.path;
-          
-          return (
-            <NavLink
-              key={item.path}
-              to={itemPath}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-colors group',
-                  isActive && 'bg-orange-100 text-orange-800 font-medium shadow-sm'
-                )
-              }
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              <span className="flex-1">{item.label}</span>
-              {item.badge && (
-                <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
-                  {item.badge}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
+        {filteredItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-colors group',
+                isActive && 'bg-orange-100 text-orange-800 font-medium shadow-sm'
+              )
+            }
+          >
+            <item.icon className="h-5 w-5 flex-shrink-0" />
+            <span className="flex-1">{item.label}</span>
+            {item.badge && (
+              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                {item.badge}
+              </span>
+            )}
+          </NavLink>
+        ))}
 
         {/* Role-specific highlights */}
-        {role === 'processing' && (
+        {currentRole === 'processing' && (
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <div className="flex items-center space-x-2 text-blue-700">
               <Users className="h-4 w-4" />
@@ -136,7 +111,7 @@ const Sidebar: React.FC = () => {
           </div>
         )}
 
-        {role === 'nodal' && (
+        {currentRole === 'nodal' && (
           <div className="mt-6 p-4 bg-green-50 rounded-lg">
             <div className="flex items-center space-x-2 text-green-700">
               <UserCheck className="h-4 w-4" />
@@ -148,7 +123,7 @@ const Sidebar: React.FC = () => {
           </div>
         )}
 
-        {role === 'authority' && (
+        {currentRole === 'authority' && (
           <div className="mt-6 p-4 bg-purple-50 rounded-lg">
             <div className="flex items-center space-x-2 text-purple-700">
               <BarChart3 className="h-4 w-4" />

@@ -4,20 +4,98 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth, RouteGuard } from "@/contexts/AuthContext";
+import { OfflineModeProvider } from "@/contexts/OfflineModeContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import OfflineFallback from "@/components/OfflineFallback";
+import { withOnlineCheck } from "@/hocs/withOnlineCheck";
 import LoginForm from "@/components/auth/LoginForm";
-import Dashboard from "@/pages/Dashboard";
-import LeadManagement from "@/pages/LeadManagement";
-import NewLead from "@/pages/NewLead";
-import LeadDetail from "@/pages/LeadDetail";
-import LeadAssignment from "@/pages/LeadAssignment";
-import Analytics from "@/pages/Analytics";
-import AuditLogs from "@/pages/AuditLogs";
-import ExportData from "@/pages/ExportData";
-import UserManagement from "@/pages/UserManagement";
+import DashboardBase from "@/pages/Dashboard";
+import OfflineDashboard from "@/components/dashboard/OfflineDashboard";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
+
+// Create an offline-aware Dashboard component
+const Dashboard = () => {
+  const { isOffline } = useOfflineMode();
+  return isOffline ? <OfflineDashboard /> : <DashboardBase />;
+};
+import LeadManagementBase from "@/pages/LeadManagement";
+import NewLeadBase from "@/pages/NewLead";
+import LeadDetailBase from "@/pages/LeadDetail";
+import LeadAssignmentBase from "@/pages/LeadAssignment";
+import AnalyticsBase from "@/pages/Analytics";
+import AuditLogsBase from "@/pages/AuditLogs";
+import ExportDataBase from "@/pages/ExportData";
+import UserManagementBase from "@/pages/UserManagement";
+
+// Create offline-aware versions of components
+const LeadManagement = withOnlineCheck(LeadManagementBase, {
+  customOfflineProps: {
+    title: "Leads Unavailable Offline",
+    message: "Lead management requires an internet connection to load and update lead data. You can view cached leads in offline mode.",
+    actionText: "Go to Dashboard",
+    actionLink: "/dashboard"
+  }
+});
+
+const NewLead = NewLeadBase; // Already has offline support
+
+const LeadDetail = withOnlineCheck(LeadDetailBase, {
+  customOfflineProps: {
+    title: "Lead Details Unavailable",
+    message: "Lead details require an internet connection to load. Please try again when you're online.",
+    actionText: "Go Back",
+    actionLink: "/dashboard"
+  }
+});
+
+const LeadAssignment = withOnlineCheck(LeadAssignmentBase, {
+  customOfflineProps: {
+    title: "Assignment Unavailable Offline",
+    message: "Lead assignment features require an internet connection.",
+    actionText: "Go to Dashboard",
+    actionLink: "/dashboard"
+  }
+});
+
+const Analytics = withOnlineCheck(AnalyticsBase, {
+  customOfflineProps: {
+    title: "Analytics Unavailable Offline",
+    message: "Analytics features require an internet connection to load data.",
+    actionText: "Go to Dashboard",
+    actionLink: "/dashboard"
+  }
+});
+
+const AuditLogs = withOnlineCheck(AuditLogsBase, {
+  customOfflineProps: {
+    title: "Audit Logs Unavailable Offline",
+    message: "Audit logs require an internet connection to load data.",
+    actionText: "Go to Dashboard",
+    actionLink: "/dashboard"
+  }
+});
+
+const ExportData = withOnlineCheck(ExportDataBase, {
+  customOfflineProps: {
+    title: "Export Unavailable Offline",
+    message: "Data export features require an internet connection.",
+    actionText: "Go to Dashboard",
+    actionLink: "/dashboard"
+  }
+});
+
+const UserManagement = withOnlineCheck(UserManagementBase, {
+  customOfflineProps: {
+    title: "User Management Unavailable Offline",
+    message: "User management features require an internet connection.",
+    actionText: "Go to Dashboard",
+    actionLink: "/dashboard"
+  }
+});
 import NotFound from "./pages/NotFound";
 import { useEffect } from 'react';
 
@@ -33,6 +111,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           {children}
         </main>
       </div>
+      <OfflineIndicator />
       <PWAInstallPrompt />
     </div>
   );
@@ -172,13 +251,15 @@ const App = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <AuthProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AuthenticatedApp />
-            </BrowserRouter>
-          </AuthProvider>
+          <OfflineModeProvider>
+            <AuthProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AuthenticatedApp />
+              </BrowserRouter>
+            </AuthProvider>
+          </OfflineModeProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>

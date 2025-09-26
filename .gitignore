@@ -10,6 +10,7 @@
 /backend/yarn-error.log*
 /backend/pnpm-debug.log*
 
+
 # Logs
 /backend/logs
 /backend/*.log
@@ -35,6 +36,7 @@
 /ml-service/venv/
 /ml-service/.env
 /ml-service/.env.local
+/ml-service/models
 
 # -------------------------------
 # Frontend (React/Vue/Svelte)

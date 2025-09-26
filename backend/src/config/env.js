@@ -15,7 +15,11 @@ const config = {
   ML_SERVICE_URL: process.env.ML_SERVICE_URL || 'http://localhost:8000',
   
   // CORS Configuration
-  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  // Allow multiple origins (frontend may run on 8080 or 3000, adjust as needed)
+  CORS_ORIGIN: (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.split(',')) || [
+    'http://localhost:8080',
+    'http://localhost:3000'
+  ],
   
   // Security Configuration
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS) || 12,
