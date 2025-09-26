@@ -83,35 +83,6 @@ It supports **offline-first functionality** for field staff, leverages **AI-powe
 
 ---
 
-## **Flowchart of Execution**
-
-```text
-[User Login/Register]
-           |
-           v
-   [RBAC Verification]
-           |
-           v
-[Lead Creation / Viewing / Assignment]
-           |
-           v
-[Lead Data Sent to AI Service (FastAPI)]
-           |
-           v
-[AI Models Predict Probabilities]
-           |
-           v
-[Lead Conversion Score + Loan Payment Reliability]
-           |
-           v
-[Backend Returns Scores & Categorization]
-           |
-           v
-[Frontend Displays Likely / Unlikely / Borderline Leads]
-
-
----
-
 ## **Key Technologies**
 
 - **bcrypt** → password hashing
