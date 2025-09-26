@@ -1,51 +1,86 @@
-# LeadVault
 
-A lead management system with AI-powered lead scoring.
+/**
+🔐 Project Overview: LeadVault (Secure Lead Management System)
 
-## Project Structure
+Tech Stack:
 
-- `frontend/`: React PWA frontend
-- `backend/`: Node.js REST API
-- `ml_service/`: FastAPI ML microservice
+Frontend: React PWA (Progressive Web App) with offline support using Service Workers & IndexedDB
 
-## Getting Started
+Backend: Node.js + Express + MongoDB
 
-### Using Docker
+AI Scoring: FastAPI microservice that returns a "Lead Conversion Probability" score (0–100) based on lead features
 
-1. Clone the repository
-2. Create `.env` files in backend/ and ml_service/
-3. Run `docker-compose up --build`
+User Roles (RBAC):
 
-### Manual Setup
+Higher Authority
 
-#### Frontend
-```bash
-cd frontend
-npm install
-npm start
-```
+Nodal Officer (assigned to a zone)
 
-#### Backend
-```bash
-cd backend
-npm install
-npm run dev
-```
+Processing Staff (tied to a zone via their Nodal Officer)
 
-#### ML Service
-```bash
-cd ml_service
-python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+Core Features:
 
-## Features
+Authentication with JWT
 
-- Progressive Web App (PWA) support
-- Role-based access control
-- Offline data synchronization
-- AI-powered lead scoring
-- REST API backend
-- ML microservice
+Role-Based Access Control:
+
+Higher Authority can create Nodal Officers
+
+Nodal Officers can create Processing Staff
+
+Lead Management:
+
+CRUD endpoints with audit logs
+
+Zone-based data filtering
+
+Staff can create leads (even offline — stored locally in PWA, synced later)
+
+Smart Assignment:
+
+Nodal Officers assign leads using AI recommendation (based on staff workload + proximity)
+
+AI Scoring:
+
+Backend sends lead data to FastAPI ML service
+
+Returns a lead conversion probability score
+
+Used to prioritize leads and display urgency
+
+Folder Structure (Backend):
+
+/src
+
+/routes → All Express routes (auth, leads, users)
+
+/controllers → Logic for handling requests
+
+/models → Mongoose schemas (User, Lead, etc.)
+
+/middleware → JWT auth and RBAC enforcement
+
+/services → JWT signing, ML service integration
+
+/config → MongoDB, env config
+
+/utils → Password hashing helpers
+
+app.js → Express app setup
+
+index.js → Server entry point
+
+Key Technologies:
+
+bcrypt for password hashing
+
+jsonwebtoken for access tokens
+
+Express middleware for request auth
+
+MongoDB for all data storage
+
+FastAPI microservice for AI scoring
+
+→ Now implement the Authentication logic (login + register + RBAC) below this overview
+*/
