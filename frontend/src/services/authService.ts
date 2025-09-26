@@ -20,6 +20,11 @@ export interface LoginResponse {
   expiresIn: string;
 }
 
+export interface Login2FAResponse {
+  userId: string;
+  username: string;
+}
+
 export interface RegisterRequest {
   username: string;
   password: string;
@@ -30,19 +35,28 @@ export interface RegisterRequest {
 
 class AuthService {
   /**
-   * Login user
+   * Login user - handles both regular login and 2FA requirement
    */
-  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    const response = await apiCall<LoginResponse>({
+  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse | Login2FAResponse>> {
+    console.log('🔐 AuthService: Making login API call for', credentials.username);
+    
+    const response = await apiCall<LoginResponse | Login2FAResponse>({
       method: 'POST',
       url: '/auth/login',
       data: credentials
     });
 
-    if (response.success && response.data) {
+    console.log('🔐 AuthService: Login API response:', response);
+
+    // Only store token and user data for complete login (not 2FA requirement)
+    if (response.success && response.data && !response.requires2FA) {
+      console.log('🔐 AuthService: Storing login data (no 2FA)');
+      const loginData = response.data as LoginResponse;
       // Store token and user data
-      localStorage.setItem('leadvault_token', response.data.token);
-      localStorage.setItem('leadvault_user', JSON.stringify(response.data.user));
+      localStorage.setItem('leadvault_token', loginData.token);
+      localStorage.setItem('leadvault_user', JSON.stringify(loginData.user));
+    } else if (response.requires2FA) {
+      console.log('🔐 AuthService: 2FA required, not storing login data');
     }
 
     return response;
@@ -127,6 +141,104 @@ class AuthService {
    */
   getToken(): string | null {
     return localStorage.getItem('leadvault_token');
+  }
+
+  /**
+   * Complete login with 2FA verification
+   */
+  async loginWith2FA(userId: string, token: string): Promise<ApiResponse<LoginResponse>> {
+    const response = await apiCall<LoginResponse>({
+      method: 'POST',
+      url: '/auth/login-2fa',
+      data: { userId, token }
+    });
+
+    if (response.success && response.data) {
+      // Store token and user data
+      localStorage.setItem('leadvault_token', response.data.token);
+      localStorage.setItem('leadvault_user', JSON.stringify(response.data.user));
+    }
+
+    return response;
+  }
+
+  /**
+   * Setup 2FA - Generate QR code and secret
+   */
+  async setup2FA(): Promise<ApiResponse<{
+    qrCode: string;
+    manualEntryKey: string;
+    issuer: string;
+    accountName: string;
+  }>> {
+    return await apiCall<{
+      qrCode: string;
+      manualEntryKey: string;
+      issuer: string;
+      accountName: string;
+    }>({
+      method: 'POST',
+      url: '/2fa/setup'
+    });
+  }
+
+  /**
+   * Enable 2FA after verification
+   */
+  async enable2FA(token: string): Promise<ApiResponse<{
+    backupCodes: string[];
+  }>> {
+    return await apiCall<{
+      backupCodes: string[];
+    }>({
+      method: 'POST',
+      url: '/2fa/enable',
+      data: { token }
+    });
+  }
+
+  /**
+   * Disable 2FA
+   */
+  async disable2FA(token: string): Promise<ApiResponse<void>> {
+    return await apiCall<void>({
+      method: 'POST',
+      url: '/2fa/disable',
+      data: { token }
+    });
+  }
+
+  /**
+   * Get 2FA status
+   */
+  async get2FAStatus(): Promise<ApiResponse<{
+    enabled: boolean;
+    backupCodesRemaining: number;
+    hasSecret: boolean;
+  }>> {
+    return await apiCall<{
+      enabled: boolean;
+      backupCodesRemaining: number;
+      hasSecret: boolean;
+    }>({
+      method: 'GET',
+      url: '/2fa/status'
+    });
+  }
+
+  /**
+   * Regenerate backup codes
+   */
+  async regenerateBackupCodes(token: string): Promise<ApiResponse<{
+    backupCodes: string[];
+  }>> {
+    return await apiCall<{
+      backupCodes: string[];
+    }>({
+      method: 'POST',
+      url: '/2fa/regenerate-backup-codes',
+      data: { token }
+    });
   }
 
   /**

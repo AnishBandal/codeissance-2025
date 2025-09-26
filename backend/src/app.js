@@ -62,6 +62,7 @@ app.use('/api/leads', leadsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/2fa', require('./routes/twoFactor'));
 
 // 404 handler
 app.use('*', (req, res) => {
