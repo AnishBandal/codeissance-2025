@@ -55,11 +55,30 @@ const LeadManagement: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalLeads, setTotalLeads] = useState(0);
+  const [allowedStatuses, setAllowedStatuses] = useState<string[]>([]);
 
   // Load leads from backend
   useEffect(() => {
     loadLeads();
   }, [currentPage, statusFilter, sortField, sortDirection]);
+
+  // Fetch allowed status updates for current user's role
+  useEffect(() => {
+    const fetchAllowedStatuses = async () => {
+      try {
+        const response = await leadService.getAllowedStatusUpdates();
+        if (response.success) {
+          setAllowedStatuses(response.data.allowedStatuses);
+        }
+      } catch (error) {
+        console.error('Error fetching allowed statuses:', error);
+        // Fallback to all statuses if API fails
+        setAllowedStatuses(['New', 'Document Collection', 'Initial Review', 'Credit Assessment', 'Final Review', 'Approved', 'Rejected', 'Completed']);
+      }
+    };
+
+    fetchAllowedStatuses();
+  }, [currentRole]);
 
   const loadLeads = async () => {
     try {
@@ -217,15 +236,11 @@ const LeadManagement: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Document Collection">Document Collection</SelectItem>
-                  <SelectItem value="Initial Review">Initial Review</SelectItem>
-                  <SelectItem value="Credit Assessment">Credit Assessment</SelectItem>
-                  <SelectItem value="Final Review">Final Review</SelectItem>
-                  <SelectItem value="Under Review">Under Review</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
+                  {allowedStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

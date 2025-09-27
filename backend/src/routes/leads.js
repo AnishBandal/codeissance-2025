@@ -25,6 +25,16 @@ router.get('/stats',
 );
 
 /**
+ * @route   GET /api/leads/allowed-status
+ * @desc    Get allowed status updates for current user's role
+ * @access  Private
+ */
+router.get('/allowed-status',
+  authenticateToken,
+  leadController.getAllowedStatusForUser
+);
+
+/**
  * @route   GET /api/leads/export
  * @desc    Export leads in CSV/JSON format
  * @access  Private (Nodal Officer & Higher Authority)

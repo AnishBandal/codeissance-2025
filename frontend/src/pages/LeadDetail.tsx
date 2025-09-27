@@ -55,6 +55,7 @@ const LeadDetail: React.FC = () => {
   const [isReverting, setIsReverting] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [isSendingRemarks, setIsSendingRemarks] = useState(false);
+  const [allowedStatuses, setAllowedStatuses] = useState<string[]>([]);
   
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -70,6 +71,22 @@ const LeadDetail: React.FC = () => {
     region: '',
     aiInsight: ''
   });
+
+  // Helper function to check if a field is editable based on user role
+  const isFieldEditable = (fieldName: string) => {
+    if (!isEditing) return false;
+    
+    if (role === 'processing') {
+      // Processing staff can only edit status
+      return fieldName === 'status';
+    } else if (role === 'nodal') {
+      // Nodal officers can edit most fields except AI insights
+      return fieldName !== 'aiInsight';
+    } else {
+      // Admin can edit all fields
+      return true;
+    }
+  };
 
   // Load lead data
   useEffect(() => {
@@ -123,12 +140,46 @@ const LeadDetail: React.FC = () => {
     }
   }, [locationState, role]);
 
+  // Fetch allowed status updates for current user's role
+  useEffect(() => {
+    const fetchAllowedStatuses = async () => {
+      try {
+        const response = await leadService.getAllowedStatusUpdates();
+        if (response.success) {
+          setAllowedStatuses(response.data.allowedStatuses);
+        }
+      } catch (error) {
+        console.error('Error fetching allowed statuses:', error);
+        // Fallback to all statuses if API fails
+        setAllowedStatuses(['New', 'Document Collection', 'Initial Review', 'Credit Assessment', 'Final Review', 'Approved', 'Rejected', 'Completed']);
+      }
+    };
+
+    fetchAllowedStatuses();
+  }, [role]);
+
   const handleSave = async () => {
     if (!id) return;
     
     setIsSaving(true);
     try {
-      const response = await leadService.updateLead(id, editForm);
+      // Filter update payload based on user role
+      let updatePayload = { ...editForm };
+      
+      if (role === 'processing') {
+        // Processing staff can only update status
+        updatePayload = {
+          status: editForm.status
+        };
+      } else if (role === 'nodal') {
+        // Nodal officers can update most fields but not certain sensitive ones
+        const { aiInsight, ...allowedFields } = editForm;
+        updatePayload = allowedFields;
+      }
+      // Admin can update all fields (no filtering needed)
+
+      console.log('Update payload for role', role, ':', updatePayload);
+      const response = await leadService.updateLead(id, updatePayload);
       if (response.success) {
         setLead(response.data.lead);
         
@@ -142,11 +193,23 @@ const LeadDetail: React.FC = () => {
       } else {
         throw new Error(response.message || 'Failed to update lead');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating lead:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = "Failed to update lead. Please try again.";
+      if (error && typeof error === 'object') {
+        if (error.message) {
+          errorMessage = error.message;
+        }
+        if (error.error === 'LIMITED_UPDATE_PERMISSION') {
+          errorMessage = `Processing staff can only update status. Current role: ${role}`;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to update lead. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -221,7 +284,7 @@ const LeadDetail: React.FC = () => {
       } else {
         throw new Error(response.message || 'Failed to send remarks');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Error sending remarks:', error);
       console.error('❌ Error details:', {
         message: error.message,
@@ -381,7 +444,7 @@ const LeadDetail: React.FC = () => {
                     id="customerName"
                     value={isEditing ? editForm.customerName : lead.customerName}
                     onChange={(e) => setEditForm(prev => ({ ...prev, customerName: e.target.value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('customerName')}
                   />
                 </div>
                 <div>
@@ -390,7 +453,7 @@ const LeadDetail: React.FC = () => {
                     id="customerAge"
                     value={isEditing ? editForm.customerAge : lead.customerAge}
                     onChange={(e) => setEditForm(prev => ({ ...prev, customerAge: parseInt(e.target.value) }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('customerAge')}
                     type="number"
                   />
                 </div>
@@ -405,7 +468,7 @@ const LeadDetail: React.FC = () => {
                       id="phone"
                       value={isEditing ? editForm.phone : lead.phone}
                       onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                      disabled={!isEditing}
+                      disabled={!isFieldEditable('phone')}
                       className="pl-10"
                     />
                   </div>
@@ -418,7 +481,7 @@ const LeadDetail: React.FC = () => {
                       id="email"
                       value={isEditing ? editForm.email : lead.email}
                       onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                      disabled={!isEditing}
+                      disabled={!isFieldEditable('email')}
                       className="pl-10"
                     />
                   </div>
@@ -432,7 +495,7 @@ const LeadDetail: React.FC = () => {
                     id="occupation"
                     value={isEditing ? editForm.customerOccupation : lead.customerOccupation}
                     onChange={(e) => setEditForm(prev => ({ ...prev, customerOccupation: e.target.value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('customerOccupation')}
                   />
                 </div>
                 <div>
@@ -441,7 +504,7 @@ const LeadDetail: React.FC = () => {
                     id="income"
                     value={isEditing ? editForm.customerIncome : lead.customerIncome}
                     onChange={(e) => setEditForm(prev => ({ ...prev, customerIncome: e.target.value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('customerIncome')}
                   />
                 </div>
               </div>
@@ -463,7 +526,7 @@ const LeadDetail: React.FC = () => {
                   <Select 
                     value={isEditing ? editForm.productType : lead.productType} 
                     onValueChange={(value) => setEditForm(prev => ({ ...prev, productType: value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('productType')}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select product type" />
@@ -483,7 +546,7 @@ const LeadDetail: React.FC = () => {
                     id="loanAmount"
                     value={isEditing ? editForm.loanAmount : lead.loanAmount}
                     onChange={(e) => setEditForm(prev => ({ ...prev, loanAmount: e.target.value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('loanAmount')}
                   />
                 </div>
               </div>
@@ -495,7 +558,7 @@ const LeadDetail: React.FC = () => {
                     id="region"
                     value={isEditing ? editForm.region : lead.region}
                     onChange={(e) => setEditForm(prev => ({ ...prev, region: e.target.value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('region')}
                   />
                 </div>
                 <div>
@@ -503,21 +566,17 @@ const LeadDetail: React.FC = () => {
                   <Select 
                     value={isEditing ? editForm.status : lead.status} 
                     onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}
-                    disabled={!isEditing}
+                    disabled={!isFieldEditable('status')}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="New">New</SelectItem>
-                      <SelectItem value="Document Collection">Document Collection</SelectItem>
-                      <SelectItem value="Initial Review">Initial Review</SelectItem>
-                      <SelectItem value="Credit Assessment">Credit Assessment</SelectItem>
-                      <SelectItem value="Final Review">Final Review</SelectItem>
-                      <SelectItem value="Under Review">Under Review</SelectItem>
-                      <SelectItem value="Approved">Approved</SelectItem>
-                      <SelectItem value="Rejected">Rejected</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
+                      {allowedStatuses.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

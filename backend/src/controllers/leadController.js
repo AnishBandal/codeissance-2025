@@ -4,6 +4,7 @@ const AuditLog = require('../models/AuditLog');
 const aiScoreService = require('../services/aiScoreService');
 const mlPredictionService = require('../services/mlPredictionService');
 const { ROLES } = require('../middleware/rbacMiddleware');
+const { validateStatusUpdate, getAllowedStatusUpdates } = require('../utils/statusPermissions');
 
 /**
  * Get all leads (with zone/role-based filtering)
@@ -334,6 +335,19 @@ const updateLead = async (req, res) => {
           success: false,
           message: 'Processing staff can only update status',
           error: 'LIMITED_UPDATE_PERMISSION'
+        });
+      }
+    }
+
+    // Validate status updates based on role permissions
+    if (updates.status && updates.status !== lead.status) {
+      const statusValidation = validateStatusUpdate(userRole, lead.status, updates.status);
+      if (!statusValidation.success) {
+        return res.status(403).json({
+          success: false,
+          message: statusValidation.message,
+          error: statusValidation.error,
+          allowedStatuses: getAllowedStatusUpdates(userRole)
         });
       }
     }
@@ -1292,6 +1306,33 @@ const predictLeadOutcomes = async (req, res) => {
   }
 };
 
+/**
+ * Get allowed status updates for current user's role
+ */
+const getAllowedStatusForUser = async (req, res) => {
+  try {
+    const userRole = req.user.role;
+    const allowedStatuses = getAllowedStatusUpdates(userRole);
+    
+    res.json({
+      success: true,
+      message: 'Allowed status updates retrieved successfully',
+      data: {
+        role: userRole,
+        allowedStatuses,
+        statusHierarchy: require('../utils/statusPermissions').STATUS_HIERARCHY
+      }
+    });
+  } catch (error) {
+    console.error('Get allowed status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get allowed status',
+      error: 'INTERNAL_ERROR'
+    });
+  }
+};
+
 module.exports = {
   getLeads,
   getLeadById,
@@ -1304,5 +1345,6 @@ module.exports = {
   assignLead,
   getLeadStats,
   exportLeads,
+  getAllowedStatusForUser,
   predictLeadOutcomes
 };

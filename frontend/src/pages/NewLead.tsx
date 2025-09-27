@@ -32,7 +32,7 @@ import {
   Loader2,
   Upload
 } from 'lucide-react';
-
+import { IndianRupee } from "lucide-react";
 const parseCurrencyValue = (value: string) => {
   if (!value) return 0;
   const cleaned = value.replace(/[^\d.]/g, '');
@@ -468,8 +468,7 @@ const NewLead: React.FC = () => {
                   <div>
                     <Label htmlFor="customerIncome">Annual Income</Label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
+<IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-400" />                      <Input
                         id="customerIncome"
                         value={formData.customerIncome}
                         onChange={(e) => handleInputChange('customerIncome', e.target.value)}

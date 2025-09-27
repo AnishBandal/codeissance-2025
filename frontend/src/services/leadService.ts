@@ -334,6 +334,24 @@ class LeadService {
   formatIncome(salary: number): string {
     return `₹${salary.toLocaleString()}`;
   }
+
+  /**
+   * Get allowed status updates for current user's role
+   */
+  async getAllowedStatusUpdates(): Promise<ApiResponse<{
+    role: string;
+    allowedStatuses: string[];
+    statusHierarchy: string[];
+  }>> {
+    return await apiCall<{
+      role: string;
+      allowedStatuses: string[];
+      statusHierarchy: string[];
+    }>({
+      method: 'GET',
+      url: '/leads/allowed-status'
+    });
+  }
 }
 
 export const leadService = new LeadService();
