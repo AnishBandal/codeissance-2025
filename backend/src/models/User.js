@@ -93,4 +93,4 @@ userSchema.statics.findByUsername = function(username) {
   return this.findOne({ username, isActive: true });
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);

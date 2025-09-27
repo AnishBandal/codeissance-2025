@@ -50,11 +50,50 @@ const leadSchema = new mongoose.Schema({
     min: 300, 
     max: 850 
   },
-  // Updated status enum to match frontend
+  // Enhanced multi-level progress system
   status: {
     type: String,
-    enum: ["New", "In Progress", "Under Review", "Approved", "Rejected", "Completed"],
+    enum: ["New", "Document Collection", "Initial Review", "Credit Assessment", "Final Review", "Approved", "Rejected", "Completed"],
     default: "New"
+  },
+  // Progress tracking with workflow stages
+  progressStage: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 5
+  },
+  progressDetails: {
+    stage1: { // New - Initial submission
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      notes: { type: String, default: '' }
+    },
+    stage2: { // Document Collection
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      notes: { type: String, default: '' }
+    },
+    stage3: { // Initial Review
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      notes: { type: String, default: '' }
+    },
+    stage4: { // Credit Assessment
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      notes: { type: String, default: '' }
+    },
+    stage5: { // Final Review (Authority approval)
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      notes: { type: String, default: '' }
+    }
   },
   assignedTo: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -144,6 +183,45 @@ const leadSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: "User", 
     required: true 
+  },
+  // Multi-level progress tracking
+  progressStage: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 5
+  },
+  progressDetails: {
+    stage1: {
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date, default: null },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      notes: { type: String, default: '' }
+    },
+    stage2: {
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date, default: null },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      notes: { type: String, default: '' }
+    },
+    stage3: {
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date, default: null },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      notes: { type: String, default: '' }
+    },
+    stage4: {
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date, default: null },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      notes: { type: String, default: '' }
+    },
+    stage5: {
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date, default: null },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      notes: { type: String, default: '' }
+    }
   },
   auditTrail: [
     {
@@ -259,4 +337,4 @@ leadSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Lead', leadSchema);
+module.exports = mongoose.models.Lead || mongoose.model('Lead', leadSchema);

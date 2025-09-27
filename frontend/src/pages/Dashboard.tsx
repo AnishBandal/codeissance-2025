@@ -147,12 +147,15 @@ const Dashboard: React.FC = () => {
           {getRoleTitle(role)} • {user?.zone || 'Unknown Zone'}
         </p>
         <div className="mt-4 flex space-x-4">
-          <Button asChild className="bg-orange-600 hover:bg-orange-700">
-            <Link to="/leads/new">
-              <Plus className="w-4 h-4 mr-2" />
-              New Lead
-            </Link>
-          </Button>
+          {/* Only Processing Staff and Nodal Officers can create new leads */}
+          {(role === 'processing' || role === 'nodal') && (
+            <Button asChild className="bg-orange-600 hover:bg-orange-700">
+              <Link to="/leads/new">
+                <Plus className="w-4 h-4 mr-2" />
+                New Lead
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link to="/leads">
               View All Leads

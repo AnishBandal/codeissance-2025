@@ -22,7 +22,7 @@ const UserManagement: React.FC = () => {
   }
 
   const canCreateNodalOfficer = role === 'authority';
-  const canCreateProcessingStaff = role === 'authority' || role === 'nodal';
+  const canCreateProcessingStaff = role === 'nodal'; // Only Nodal Officers can create Processing Staff
 
   const handleUserCreated = () => {
     setActiveDialog(null);
@@ -117,37 +117,38 @@ const UserManagement: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Create Processing Staff */}
-        <Card className={!canCreateProcessingStaff ? 'opacity-50' : ''}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <UserPlus className="h-5 w-5" />
-              <span>Create Processing Staff</span>
-            </CardTitle>
-            <CardDescription>
-              Create a new Processing Staff member
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Dialog 
-              open={activeDialog === 'processing'} 
-              onOpenChange={(open) => setActiveDialog(open ? 'processing' : null)}
-            >
-              <DialogTrigger asChild>
-                <Button 
-                  className="w-full" 
-                  disabled={!canCreateProcessingStaff}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Create Processing Staff
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Processing Staff</DialogTitle>
-                </DialogHeader>
-                <CreateUserForm
-                  userType="processing"
+        {/* Create Processing Staff - Only show for Nodal Officers */}
+        {role === 'nodal' && (
+          <Card className={!canCreateProcessingStaff ? 'opacity-50' : ''}>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <UserPlus className="h-5 w-5" />
+                <span>Create Processing Staff</span>
+              </CardTitle>
+              <CardDescription>
+                Create a new Processing Staff member
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog 
+                open={activeDialog === 'processing'} 
+                onOpenChange={(open) => setActiveDialog(open ? 'processing' : null)}
+              >
+                <DialogTrigger asChild>
+                  <Button 
+                    className="w-full" 
+                    disabled={!canCreateProcessingStaff}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Create Processing Staff
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Create New Processing Staff</DialogTitle>
+                  </DialogHeader>
+                  <CreateUserForm
+                    userType="processing"
                   onSuccess={handleUserCreated}
                   onCancel={() => setActiveDialog(null)}
                 />
@@ -156,11 +157,12 @@ const UserManagement: React.FC = () => {
             
             {!canCreateProcessingStaff && (
               <p className="text-sm text-muted-foreground mt-2">
-                Only Higher Authority and Nodal Officer users can create Processing Staff
+                Only Nodal Officer users can create Processing Staff
               </p>
             )}
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* User Information */}

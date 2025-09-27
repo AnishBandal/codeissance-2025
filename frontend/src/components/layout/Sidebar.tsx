@@ -10,7 +10,7 @@ import {
   Download,
   Users,
 } from 'lucide-react';
-import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -65,13 +65,19 @@ const navigationItems: NavItem[] = [
     icon: Download,
     roles: ['nodal', 'authority'],
   },
+  {
+    path: '/users',
+    label: 'User Management',
+    icon: Users,
+    roles: ['nodal', 'authority'],
+  },
 ];
 
 const Sidebar: React.FC = () => {
-  const { currentRole } = useRole();
+  const { role } = useAuth();
 
   const filteredItems = navigationItems.filter(item => 
-    item.roles.includes(currentRole)
+    role && item.roles.includes(role)
   );
 
   return (
@@ -99,7 +105,7 @@ const Sidebar: React.FC = () => {
         ))}
 
         {/* Role-specific highlights */}
-        {currentRole === 'processing' && (
+        {role === 'processing' && (
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <div className="flex items-center space-x-2 text-blue-700">
               <Users className="h-4 w-4" />
@@ -111,7 +117,7 @@ const Sidebar: React.FC = () => {
           </div>
         )}
 
-        {currentRole === 'nodal' && (
+        {role === 'nodal' && (
           <div className="mt-6 p-4 bg-green-50 rounded-lg">
             <div className="flex items-center space-x-2 text-green-700">
               <UserCheck className="h-4 w-4" />
@@ -123,7 +129,7 @@ const Sidebar: React.FC = () => {
           </div>
         )}
 
-        {currentRole === 'authority' && (
+        {role === 'authority' && (
           <div className="mt-6 p-4 bg-purple-50 rounded-lg">
             <div className="flex items-center space-x-2 text-purple-700">
               <BarChart3 className="h-4 w-4" />

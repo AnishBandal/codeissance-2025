@@ -175,7 +175,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = localStorage.getItem('leadvault_token');
       console.log('🔑 Token found:', !!token);
       if (!token) {
-        dispatch({ type: 'AUTH_FAILURE', payload: 'No token found' });
+        // Clear loading state but don't show error - just show login form
+        dispatch({ type: 'CLEAR_LOADING' });
         return;
       }
 

@@ -69,6 +69,9 @@ app.use('/api/users', usersRoutes);
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/2fa', require('./routes/twoFactor'));
+app.use('/api/admin', require('./routes/adminDashboard'));
+app.use('/api/assignment', require('./routes/leadAssignment')); // Lead assignment with balance+proximity
+app.use('/api/leads', require('./routes/leadProgress')); // Lead progress management
 app.use('/api/leads', require('./routes/leadSync')); // Added for offline sync support
 
 // 404 handler

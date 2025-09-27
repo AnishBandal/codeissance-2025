@@ -2,121 +2,242 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Bank of India Design System - Professional Banking Theme */
-
+/* Bank of India Design System - Harmonized Professional Banking Theme */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 220 13% 18%;
-
-    /* Bank of India Brand Colors */
-    --boi-orange: 14 100% 60%; /* #FF6B35 */
-    --boi-orange-light: 14 100% 85%;
-    --boi-orange-dark: 14 100% 45%;
+    --background: 0 0% 98%; /* Slightly warmer white */
+    --foreground: 215 25% 20%; /* Darker text for better readability */
     
-    --boi-blue: 220 76% 17%; /* #1E3A8A */
-    --boi-blue-light: 220 76% 85%;
-    --boi-blue-dark: 220 76% 12%;
-
-    /* Professional Banking Palette */
-    --success: 142 71% 45%;
-    --success-light: 142 71% 90%;
-    --warning: 38 92% 50%;
-    --warning-light: 38 92% 90%;
-    --danger: 0 84% 60%;
-    --danger-light: 0 84% 95%;
+    /* Bank of India Brand Colors - Optimized for light theme */
+    --boi-orange: 18 88% 55%; /* #E85D2A - Slightly muted but vibrant */
+    --boi-orange-light: 18 88% 85%; /* Light orange for backgrounds */
+    --boi-orange-lighter: 18 88% 94%; /* Ultra light for subtle backgrounds */
+    --boi-orange-dark: 18 88% 45%; /* Darker orange for hover states */
+    --boi-orange-darker: 18 88% 35%; /* Very dark orange for active states */
+   
+    --boi-blue: 215 70% 25%; /* #1A4480 - Rich blue, not too dark */
+    --boi-blue-light: 215 70% 85%; /* Light blue for backgrounds */
+    --boi-blue-lighter: 215 70% 92%; /* Very light blue */
+    --boi-blue-dark: 215 70% 20%; /* Darker blue */
+    --boi-blue-darker: 215 70% 15%; /* Very dark blue for headers */
     
-    /* Neutral Grays */
-    --gray-50: 220 13% 97%;
-    --gray-100: 220 13% 95%;
-    --gray-200: 220 13% 91%;
-    --gray-300: 220 13% 85%;
-    --gray-400: 220 13% 69%;
-    --gray-500: 220 13% 46%;
-    --gray-600: 220 13% 38%;
-    --gray-700: 220 13% 28%;
-    --gray-800: 220 13% 18%;
-    --gray-900: 220 13% 9%;
-
-    /* Banking Gradients */
-    --gradient-boi: linear-gradient(135deg, hsl(var(--boi-orange)), hsl(var(--boi-blue)));
-    --gradient-header: linear-gradient(180deg, hsl(var(--boi-blue)), hsl(var(--boi-blue-dark)));
-    --gradient-card: linear-gradient(145deg, hsl(var(--background)), hsl(var(--gray-50)));
-
-    /* Professional Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(var(--gray-900) / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(var(--gray-900) / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(var(--gray-900) / 0.1);
-    --shadow-boi: 0 8px 25px -5px hsl(var(--boi-orange) / 0.3);
-
-    /* Banking Transitions */
-    --transition-fast: all 0.15s ease-out;
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    /* BoI Design System Tokens */
+    /* Professional Banking Palette - Better contrast for light theme */
+    --success: 142 65% 45%; /* #2D8F47 - Professional green */
+    --success-light: 142 65% 88%;
+    --success-lighter: 142 65% 95%;
+    --success-dark: 142 65% 35%;
+    
+    --warning: 35 85% 50%; /* #E6A700 - Warmer amber */
+    --warning-light: 35 85% 88%;
+    --warning-lighter: 35 85% 95%;
+    --warning-dark: 35 85% 40%;
+    
+    --danger: 0 75% 55%; /* #DC3545 - Better contrast red */
+    --danger-light: 0 75% 88%;
+    --danger-lighter: 0 75% 95%;
+    --danger-dark: 0 75% 45%;
+   
+    /* Harmonized Neutral Grays - Warmer undertone for light theme */
+    --gray-25: 215 15% 97%;
+    --gray-50: 215 15% 94%;
+    --gray-100: 215 15% 90%;
+    --gray-200: 215 15% 83%;
+    --gray-300: 215 15% 72%;
+    --gray-400: 215 15% 58%;
+    --gray-500: 215 15% 45%;
+    --gray-600: 215 15% 38%;
+    --gray-700: 215 15% 28%;
+    --gray-800: 215 15% 22%;
+    --gray-900: 215 15% 15%;
+    --gray-950: 215 15% 10%;
+    
+    /* Banking Gradients - Optimized for light theme visibility */
+    --gradient-boi: linear-gradient(135deg, hsl(var(--boi-orange)) 0%, hsl(var(--boi-blue)) 100%);
+    --gradient-boi-subtle: linear-gradient(135deg, hsl(var(--boi-orange-lighter)) 0%, hsl(var(--boi-blue-lighter)) 100%);
+    --gradient-header: linear-gradient(180deg, hsl(var(--boi-blue)) 0%, hsl(var(--boi-blue-darker)) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(var(--gray-25)) 100%);
+    --gradient-card-hover: linear-gradient(145deg, hsl(var(--gray-25)) 0%, hsl(var(--gray-50)) 100%);
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--gray-25)) 100%);
+    
+    /* Professional Shadows - Softer for light theme */
+    --shadow-xs: 0 1px 2px 0 hsl(var(--gray-900) / 0.03);
+    --shadow-sm: 0 1px 3px 0 hsl(var(--gray-900) / 0.06);
+    --shadow-md: 0 4px 6px -2px hsl(var(--gray-900) / 0.06), 0 2px 4px -1px hsl(var(--gray-900) / 0.03);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--gray-900) / 0.06), 0 4px 6px -2px hsl(var(--gray-900) / 0.03);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--gray-900) / 0.06), 0 10px 10px -5px hsl(var(--gray-900) / 0.03);
+    --shadow-boi: 0 8px 25px -5px hsl(var(--boi-orange) / 0.15);
+    --shadow-boi-lg: 0 12px 35px -8px hsl(var(--boi-orange) / 0.2);
+    
+    /* Banking Transitions - Refined timing */
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* BoI Design System Tokens - Light theme optimized */
     --primary: var(--boi-orange);
+    --primary-light: var(--boi-orange-light);
+    --primary-dark: var(--boi-orange-dark);
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: var(--gray-100);
+   
+    --secondary: var(--gray-50); /* Lighter secondary for better contrast */
+    --secondary-light: var(--gray-25);
+    --secondary-dark: var(--gray-100);
     --secondary-foreground: var(--gray-800);
-    
+   
     --accent: var(--boi-blue);
+    --accent-light: var(--boi-blue-light);
+    --accent-dark: var(--boi-blue-dark);
     --accent-foreground: 0 0% 100%;
-    
-    --muted: var(--gray-100);
-    --muted-foreground: var(--gray-500);
-    
+   
+    --muted: var(--gray-100); /* Better muted background */
+    --muted-light: var(--gray-50);
+    --muted-dark: var(--gray-200);
+    --muted-foreground: var(--gray-600);
+   
     --card: 0 0% 100%;
     --card-foreground: var(--gray-800);
-    
+    --card-border: var(--gray-200);
+   
     --border: var(--gray-200);
-    --input: var(--gray-200);
+    --border-light: var(--gray-100);
+    --border-dark: var(--gray-300);
+    
+    --input: hsl(0 0% 100%); /* Pure white input backgrounds */
+    --input-border: var(--gray-300);
+    --input-focus: var(--boi-orange);
+    
     --ring: var(--boi-orange);
-    
+    --ring-offset: var(--background);
+   
     --destructive: var(--danger);
+    --destructive-light: var(--danger-light);
     --destructive-foreground: 0 0% 100%;
-    
+   
+    --radius-sm: 0.5rem;
     --radius: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
   }
+  
+  /* Remove dark theme - light theme only */
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-
+  
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
-
-  /* Banking-specific styles */
+  
+  /* Enhanced Banking-specific styles */
   .boi-gradient {
     background: var(--gradient-boi);
   }
   
+  .boi-gradient-subtle {
+    background: var(--gradient-boi-subtle);
+  }
+ 
   .boi-header {
     background: var(--gradient-header);
   }
-  
+ 
   .boi-card {
     background: var(--gradient-card);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm); /* Softer shadow for light theme */
     transition: var(--transition-smooth);
+    border: 1px solid hsl(var(--border-light));
   }
-  
+ 
   .boi-card:hover {
-    box-shadow: var(--shadow-lg);
+    background: var(--gradient-card-hover);
+    box-shadow: var(--shadow-md); /* Less dramatic hover effect */
+    transform: translateY(-1px);
   }
   
+  /* Sidebar styling for light theme */
+  .boi-sidebar {
+    background: var(--gradient-sidebar);
+    border-right: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-sm);
+  }
+  
+  /* Header styling optimized for light theme */
+  .boi-header {
+    background: var(--gradient-header);
+    color: white;
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* Enhanced Priority States with softer colors for light theme */
   .priority-high {
-    @apply bg-red-50 text-red-700 border-red-200;
+    background-color: hsl(var(--danger-lighter));
+    color: hsl(var(--danger-dark));
+    border-color: hsl(var(--danger-light));
+    border: 1px solid;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
   }
-  
+ 
   .priority-medium {
-    @apply bg-yellow-50 text-yellow-700 border-yellow-200;
+    background-color: hsl(var(--warning-lighter));
+    color: hsl(var(--warning-dark));
+    border-color: hsl(var(--warning-light));
+    border: 1px solid;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+ 
+  .priority-low {
+    background-color: hsl(var(--success-lighter));
+    color: hsl(var(--success-dark));
+    border-color: hsl(var(--success-light));
+    border: 1px solid;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
   }
   
-  .priority-low {
-    @apply bg-green-50 text-green-700 border-green-200;
+  /* Interactive Elements */
+  .boi-button {
+    transition: var(--transition-fast);
+    border-radius: var(--radius);
   }
+  
+  .boi-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-boi);
+  }
+  
+  .boi-button:active {
+    transform: translateY(0);
+  }
+  
+  /* Focus States */
+  .boi-focus {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  
+  /* Status Indicators */
+  .status-success { color: hsl(var(--success)); }
+  .status-warning { color: hsl(var(--warning)); }
+  .status-danger { color: hsl(var(--danger)); }
+  
+  /* Text Hierarchy */
+  .text-brand-primary { color: hsl(var(--boi-orange)); }
+  .text-brand-secondary { color: hsl(var(--boi-blue)); }
+  
+  /* Background Utilities */
+  .bg-brand-primary { background-color: hsl(var(--boi-orange)); }
+  .bg-brand-secondary { background-color: hsl(var(--boi-blue)); }
+  .bg-brand-light { background-color: hsl(var(--boi-orange-lighter)); }
 }
