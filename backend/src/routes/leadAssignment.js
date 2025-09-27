@@ -6,22 +6,30 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { requireRole, ROLES } = require('../middleware/rbacMiddleware');
 
 // GET /api/assignment/stats - Get assignment statistics
-router.get('/stats', authenticateToken, requireRole(['Nodal Officer', 'Higher Authority']), async (req, res) => {
+router.get('/stats', authenticateToken, requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]), async (req, res) => {
   try {
-    const userZone = req.user.zone;
+    const { role: userRole, zone: userZone } = req.user;
+    const isHigherAuthority = userRole === ROLES.HIGHER_AUTHORITY;
+    const requestedZone = req.query.zone;
+
+    const zoneCriteria = !isHigherAuthority
+      ? { zone: userZone }
+      : requestedZone
+        ? { zone: requestedZone }
+        : {};
 
     // Get total unassigned leads in user's zone
     const unassignedLeads = await Lead.countDocuments({
       assignedTo: null,
-      zone: userZone,
-      status: { $nin: ['Completed', 'Rejected'] }
+      status: { $nin: ['Completed', 'Rejected'] },
+      ...zoneCriteria
     });
 
     // Get nodal officers in the same zone with their lead counts
     const nodalOfficers = await User.find({
-      role: 'Nodal Officer',
-      zone: userZone,
-      isActive: true
+      role: ROLES.NODAL_OFFICER,
+      isActive: true,
+      ...zoneCriteria
     }).select('username email zone');
 
     // Get assignment stats for each nodal officer
@@ -56,7 +64,8 @@ router.get('/stats', authenticateToken, requireRole(['Nodal Officer', 'Higher Au
           assignedTo: { $in: nodalOfficers.map(o => o._id) },
           status: { $in: ['Completed', 'Approved'] },
           createdAt: { $exists: true },
-          updatedAt: { $exists: true }
+          updatedAt: { $exists: true },
+          ...zoneCriteria
         }
       },
       {
@@ -96,7 +105,7 @@ router.get('/stats', authenticateToken, requireRole(['Nodal Officer', 'Higher Au
       success: true,
       data: {
         unassignedLeads,
-        zone: userZone,
+        zone: !isHigherAuthority ? userZone : (requestedZone || 'All Zones'),
         officers: enhancedStats,
         totalOfficers: nodalOfficers.length
       },
@@ -114,10 +123,11 @@ router.get('/stats', authenticateToken, requireRole(['Nodal Officer', 'Higher Au
 });
 
 // POST /api/assignment/assign - Assign lead to nodal officer using balance+proximity strategy
-router.post('/assign', authenticateToken, requireRole(['Nodal Officer', 'Higher Authority']), async (req, res) => {
+router.post('/assign', authenticateToken, requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]), async (req, res) => {
   try {
     const { leadId, officerId, strategy = 'auto' } = req.body;
-    const userZone = req.user.zone;
+    const { role: userRole, zone: userZone } = req.user;
+    const isHigherAuthority = userRole === ROLES.HIGHER_AUTHORITY;
 
     // Validate lead exists and is unassigned
     const lead = await Lead.findById(leadId);
@@ -136,36 +146,51 @@ router.post('/assign', authenticateToken, requireRole(['Nodal Officer', 'Higher 
     }
 
     // Ensure lead is in user's zone
-    if (lead.zone !== userZone) {
+    if (!isHigherAuthority && lead.zone !== userZone) {
       return res.status(403).json({
         success: false,
         error: 'Lead not in your zone'
       });
     }
 
+    const targetZone = isHigherAuthority ? lead.zone : userZone;
+
     let selectedOfficer;
 
     if (strategy === 'manual' && officerId) {
       // Manual assignment to specific officer
-      selectedOfficer = await User.findOne({
+      const officerQuery = {
         _id: officerId,
-        role: 'Nodal Officer',
-        zone: userZone,
+        role: ROLES.NODAL_OFFICER,
         isActive: true
-      });
+      };
+
+      if (!isHigherAuthority) {
+        officerQuery.zone = targetZone;
+      }
+
+      selectedOfficer = await User.findOne(officerQuery);
 
       if (!selectedOfficer) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid officer selection'
+          error: 'Invalid officer selection',
+          details: !isHigherAuthority
+            ? 'Officer must belong to your zone.'
+            : 'Requested officer is not active or does not exist.'
         });
+      }
+
+      if (isHigherAuthority && selectedOfficer.zone && selectedOfficer.zone !== lead.zone) {
+        lead.zone = selectedOfficer.zone;
+        lead.region = selectedOfficer.zone;
       }
 
     } else {
       // Auto assignment using balance+proximity strategy
       const nodalOfficers = await User.find({
-        role: 'Nodal Officer',
-        zone: userZone,
+        role: ROLES.NODAL_OFFICER,
+        zone: targetZone,
         isActive: true
       });
 
@@ -226,12 +251,12 @@ router.post('/assign', authenticateToken, requireRole(['Nodal Officer', 'Higher 
 
     // Assign the lead
     lead.assignedTo = selectedOfficer._id;
-    lead.status = 'In Progress';
+    lead.status = 'Document Collection';
     
     // Add audit trail entry
     await lead.addAuditEntry(
       'Lead Assigned',
-      req.user._id,
+      req.user.id,
       `Assigned to ${selectedOfficer.username} using ${strategy} strategy`
     );
 
@@ -269,16 +294,24 @@ router.post('/assign', authenticateToken, requireRole(['Nodal Officer', 'Higher 
 });
 
 // GET /api/assignment/unassigned - Get unassigned leads for assignment
-router.get('/unassigned', authenticateToken, requireRole(['Nodal Officer', 'Higher Authority']), async (req, res) => {
+router.get('/unassigned', authenticateToken, requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]), async (req, res) => {
   try {
     const { page = 1, limit = 10, priority, loanType } = req.query;
-    const userZone = req.user.zone;
+    const { role: userRole, zone: userZone } = req.user;
+    const isHigherAuthority = userRole === ROLES.HIGHER_AUTHORITY;
+    const requestedZone = req.query.zone;
+
+    const zoneCriteria = !isHigherAuthority
+      ? { zone: userZone }
+      : requestedZone
+        ? { zone: requestedZone }
+        : {};
     
     // Build query
     const query = {
       assignedTo: null,
-      zone: userZone,
-      status: { $nin: ['Completed', 'Rejected'] }
+      status: { $nin: ['Completed', 'Rejected'] },
+      ...zoneCriteria
     };
 
     if (priority) {

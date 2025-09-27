@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,64 @@ import {
   Loader2,
   Upload
 } from 'lucide-react';
+
+const parseCurrencyValue = (value: string) => {
+  if (!value) return 0;
+  const cleaned = value.replace(/[^\d.]/g, '');
+  return Number(cleaned) || 0;
+};
+
+const computeFallbackScore = (
+  income: number,
+  age: number,
+  loanAmount: number,
+  occupation: string,
+  creditScore: number
+) => {
+  if (!income || !age || !loanAmount) {
+    return null;
+  }
+
+  let score = 50;
+
+  if (income > 1_000_000) score += 20;
+  else if (income > 500_000) score += 10;
+  else if (income > 250_000) score += 5;
+
+  if (age >= 25 && age <= 45) score += 15;
+  else if (age >= 46 && age <= 60) score += 10;
+
+  if (loanAmount && income) {
+    const ratio = loanAmount / income;
+    if (ratio < 3) score += 15;
+    else if (ratio < 5) score += 5;
+  }
+
+  if (creditScore) {
+    const normalized = Math.max(0, Math.min(1, (creditScore - 300) / 550));
+    score += normalized * 10;
+  }
+
+  if (occupation) {
+    const professionalOccupations = ['doctor', 'engineer', 'software', 'manager', 'teacher', 'executive'];
+    if (professionalOccupations.some((prof) => occupation.toLowerCase().includes(prof))) {
+      score += 10;
+    }
+  }
+
+  return Math.min(Math.max(Math.round(score), 10), 100);
+};
+
+const extractErrorMessage = (error: unknown) => {
+  if (!error) return 'Something went wrong';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const payload = error as { error?: string; message?: string };
+    return payload.error || payload.message || 'Something went wrong';
+  }
+  return 'Something went wrong';
+};
 
 interface LeadFormData {
   customerName: string;
@@ -68,55 +126,130 @@ const NewLead: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiScore, setAiScore] = useState<number | null>(null);
+  const [mlPrediction, setMlPrediction] = useState<{
+    leadScore: number | null;
+    leadCategory: string | null;
+    repaymentProbability: number | null;
+    repaymentDecision: string | null;
+  } | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  // Mock AI scoring based on form data
-  const calculateAiScore = () => {
-    if (!formData.customerIncome || !formData.customerAge || !formData.loanAmount) {
-      return null;
-    }
-
-    const income = parseInt(formData.customerIncome.replace(/[^\d]/g, ''));
-    const age = parseInt(formData.customerAge);
-    const loanAmount = parseInt(formData.loanAmount.replace(/[^\d]/g, ''));
-
-    let score = 50; // Base score
-
-    // Income factor
-    if (income > 1000000) score += 20;
-    else if (income > 500000) score += 10;
-
-    // Age factor
-    if (age >= 25 && age <= 45) score += 15;
-    else if (age >= 45 && age <= 60) score += 10;
-
-    // Loan to income ratio
-    const loanToIncomeRatio = loanAmount / income;
-    if (loanToIncomeRatio < 3) score += 15;
-    else if (loanToIncomeRatio < 5) score += 5;
-
-    // Professional occupation bonus
-    const professionalOccupations = ['doctor', 'engineer', 'software', 'manager', 'teacher'];
-    if (professionalOccupations.some(prof => 
-      formData.customerOccupation.toLowerCase().includes(prof)
-    )) {
-      score += 10;
-    }
-
-    return Math.min(Math.max(score, 10), 100);
-  };
+  const incomeValueDisplay = parseCurrencyValue(formData.customerIncome);
+  const loanAmountValueDisplay = parseCurrencyValue(formData.loanAmount);
+  const ageValueDisplay = parseInt(formData.customerAge) || 0;
 
   const handleInputChange = (field: keyof LeadFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Recalculate AI score when relevant fields change
-    if (['customerIncome', 'customerAge', 'loanAmount', 'customerOccupation'].includes(field)) {
-      setTimeout(() => {
-        const newScore = calculateAiScore();
-        setAiScore(newScore);
-      }, 500);
-    }
   };
+
+  useEffect(() => {
+    const incomeValue = parseCurrencyValue(formData.customerIncome);
+    const loanAmountValue = parseCurrencyValue(formData.loanAmount);
+    const ageValue = parseInt(formData.customerAge) || 0;
+    const creditScoreValue = parseInt(formData.creditScore) || 0;
+
+    const hasMinimumInputs =
+      incomeValue > 0 &&
+      loanAmountValue > 0 &&
+      ageValue > 0 &&
+      creditScoreValue > 0 &&
+      Boolean(formData.productType);
+
+    if (!hasMinimumInputs) {
+      const fallback = computeFallbackScore(
+        incomeValue,
+        ageValue,
+        loanAmountValue,
+        formData.customerOccupation,
+        creditScoreValue
+      );
+      setMlPrediction(null);
+      setMlError(null);
+      setAiScore(fallback);
+      setMlLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMlLoading(true);
+    setMlError(null);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await leadService.getLeadPrediction({
+          customerIncome: incomeValue,
+          loanAmount: loanAmountValue,
+          customerAge: ageValue,
+          creditScore: creditScoreValue,
+          productType: formData.productType,
+          customerOccupation: formData.customerOccupation,
+          region: formData.region || currentUser?.region,
+        });
+
+        if (cancelled) return;
+
+        if (response.success && response.data) {
+          const data = response.data;
+          setMlPrediction({
+            leadScore: typeof data.leadScore === 'number' ? data.leadScore : null,
+            leadCategory: data.leadCategory ?? null,
+            repaymentProbability: typeof data.repaymentProbability === 'number'
+              ? data.repaymentProbability
+              : null,
+            repaymentDecision: data.repaymentDecision ?? null,
+          });
+
+          const mlScore = typeof data.leadScore === 'number' && !Number.isNaN(data.leadScore)
+            ? Math.round(data.leadScore)
+            : null;
+
+          const fallback = computeFallbackScore(
+            incomeValue,
+            ageValue,
+            loanAmountValue,
+            formData.customerOccupation,
+            creditScoreValue
+          );
+
+          setAiScore(mlScore ?? fallback);
+        } else {
+          throw response;
+        }
+      } catch (error) {
+        if (cancelled) return;
+        const fallback = computeFallbackScore(
+          incomeValue,
+          ageValue,
+          loanAmountValue,
+          formData.customerOccupation,
+          creditScoreValue
+        );
+        setAiScore(fallback);
+        setMlPrediction(null);
+        setMlError(extractErrorMessage(error));
+      } finally {
+        if (!cancelled) {
+          setMlLoading(false);
+        }
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    formData.customerIncome,
+    formData.loanAmount,
+    formData.customerAge,
+    formData.customerOccupation,
+    formData.productType,
+    formData.creditScore,
+    formData.region,
+    currentUser?.region
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -479,7 +612,12 @@ const NewLead: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {aiScore ? (
+              {mlLoading ? (
+                <div className="flex items-center justify-center py-6 text-sm text-gray-500">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Calculating AI insights…
+                </div>
+              ) : aiScore ? (
                 <>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-gray-900 mb-2">{aiScore}</div>
@@ -487,18 +625,38 @@ const NewLead: React.FC = () => {
                     {getScoreBadge(aiScore)}
                   </div>
                   
+                  {mlPrediction && (
+                    <div className="grid gap-2 rounded-lg bg-gray-50 p-3 text-sm">
+                      <div className="flex justify-between">
+                        <span>Lead Category:</span>
+                        <span className="font-medium">{mlPrediction.leadCategory ?? '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Repayment Probability:</span>
+                        <span className="font-medium">
+                          {mlPrediction.repaymentProbability !== null
+                            ? `${mlPrediction.repaymentProbability.toFixed(1)}%`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Repayment Decision:</span>
+                        <span className="font-medium">{mlPrediction.repaymentDecision ?? '—'}</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>Income Level:</span>
                       <span className="font-medium">
-                        {parseInt(formData.customerIncome.replace(/[^\d]/g, '')) > 1000000 ? 'High' : 
-                         parseInt(formData.customerIncome.replace(/[^\d]/g, '')) > 500000 ? 'Good' : 'Standard'}
+                        {incomeValueDisplay > 1_000_000 ? 'High' : incomeValueDisplay > 500_000 ? 'Good' : 'Standard'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Age Group:</span>
                       <span className="font-medium">
-                        {parseInt(formData.customerAge) >= 25 && parseInt(formData.customerAge) <= 45 ? 'Prime' : 'Standard'}
+                        {ageValueDisplay >= 25 && ageValueDisplay <= 45 ? 'Prime' : 'Standard'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -514,6 +672,12 @@ const NewLead: React.FC = () => {
                 <div className="text-center text-gray-500">
                   <Sparkles className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm">Fill in customer details to see AI priority assessment</p>
+                </div>
+              )}
+
+              {mlError && (
+                <div className="rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800">
+                  {mlError}. Showing fallback estimate instead.
                 </div>
               )}
             </CardContent>

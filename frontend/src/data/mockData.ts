@@ -16,7 +16,7 @@ export interface Lead {
   phone: string;
   email: string;
   productType: string;
-  status: 'New' | 'In Progress' | 'Under Review' | 'Approved' | 'Rejected' | 'Completed';
+  status: 'New' | 'Document Collection' | 'Initial Review' | 'Credit Assessment' | 'Final Review' | 'Approved' | 'Rejected' | 'Completed';
   priorityScore: number;
   assignedTo: string;
   createdDate: string;
@@ -81,7 +81,7 @@ export const mockLeads: Lead[] = [
     phone: "+91-9876543210",
     email: "rajesh.kumar@email.com",
     productType: "Home Loan",
-    status: "In Progress",
+    status: "Initial Review",
     priorityScore: 85,
     assignedTo: "Amit Singh",
     createdDate: "2024-01-15",
@@ -121,7 +121,7 @@ export const mockLeads: Lead[] = [
     phone: "+91-9876543212",
     email: "mohammed.ali@email.com",
     productType: "Business Loan",
-    status: "Under Review",
+    status: "Initial Review",
     priorityScore: 78,
     assignedTo: "Rajesh Gupta",
     createdDate: "2024-01-10",

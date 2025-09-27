@@ -2,6 +2,7 @@ const Lead = require('../models/Lead');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const aiScoreService = require('../services/aiScoreService');
+const mlPredictionService = require('../services/mlPredictionService');
 const { ROLES } = require('../middleware/rbacMiddleware');
 
 /**
@@ -18,8 +19,8 @@ const getLeads = async (req, res) => {
     let query = {};
 
     if (userRole === ROLES.PROCESSING_STAFF) {
-      // Staff can only see leads assigned to them
-      query.assignedTo = userId;
+      // Staff can see leads in their zone
+      query.zone = userZone;
     } else if (userRole === ROLES.NODAL_OFFICER) {
       // Nodal officers can see leads in their zone
       query.zone = userZone;
@@ -109,7 +110,8 @@ const getLeadById = async (req, res) => {
     } else if (userRole === ROLES.NODAL_OFFICER) {
       hasAccess = lead.zone === userZone;
     } else if (userRole === ROLES.PROCESSING_STAFF) {
-      hasAccess = lead.assignedTo && lead.assignedTo._id.toString() === userId;
+      // Processing staff can access leads in their zone
+      hasAccess = lead.zone === userZone;
     }
 
     if (!hasAccess) {
@@ -322,7 +324,8 @@ const updateLead = async (req, res) => {
     } else if (userRole === ROLES.NODAL_OFFICER) {
       canUpdate = lead.zone === userZone;
     } else if (userRole === ROLES.PROCESSING_STAFF) {
-      canUpdate = lead.assignedTo && lead.assignedTo.toString() === userId;
+      // Processing staff can access leads in their zone
+      canUpdate = lead.zone === userZone;
       // Staff can only update status and notes
       const allowedUpdates = ['status'];
       const updateKeys = Object.keys(updates);
@@ -520,7 +523,7 @@ const getLeadStats = async (req, res) => {
     // Build base query based on role
     let baseQuery = {};
     if (userRole === ROLES.PROCESSING_STAFF) {
-      baseQuery.assignedTo = userId;
+      baseQuery.zone = userZone;
     } else if (userRole === ROLES.NODAL_OFFICER) {
       baseQuery.zone = userZone;
     }
@@ -533,8 +536,10 @@ const getLeadStats = async (req, res) => {
     const statsPromises = [
       // Basic counts
       Lead.countDocuments({ ...baseQuery, status: 'New' }),
-      Lead.countDocuments({ ...baseQuery, status: 'In Progress' }),
-      Lead.countDocuments({ ...baseQuery, status: 'Under Review' }),
+      Lead.countDocuments({ ...baseQuery, status: 'Document Collection' }),
+      Lead.countDocuments({ ...baseQuery, status: 'Initial Review' }),
+      Lead.countDocuments({ ...baseQuery, status: 'Credit Assessment' }),
+      Lead.countDocuments({ ...baseQuery, status: 'Final Review' }),
       Lead.countDocuments({ ...baseQuery, status: 'Approved' }),
       Lead.countDocuments({ ...baseQuery, status: 'Rejected' }),
       Lead.countDocuments({ ...baseQuery, status: 'Completed' }),
@@ -629,8 +634,10 @@ const getLeadStats = async (req, res) => {
 
     const [
       newLeads,
-      inProgress,
-      underReview,
+      documentCollection,
+      initialReview,
+      creditAssessment,
+      finalReview,
       approved,
       rejected,
       completed,
@@ -644,7 +651,7 @@ const getLeadStats = async (req, res) => {
 
     const avgPriorityScore = avgScoreResult[0]?.avgScore || 0;
     const avgProcessingTime = avgProcessingResult[0]?.avgProcessingTime || 0;
-    const activeLeads = newLeads + inProgress + underReview;
+    const activeLeads = newLeads + documentCollection + initialReview + creditAssessment + finalReview;
     const convertedLeads = approved + completed;
     const conversionRate = total > 0 ? ((convertedLeads / total) * 100) : 0;
 
@@ -684,8 +691,10 @@ const getLeadStats = async (req, res) => {
         // Status breakdown
         statusBreakdown: {
           'New': newLeads,
-          'In Progress': inProgress,
-          'Under Review': underReview,
+          'Document Collection': documentCollection,
+          'Initial Review': initialReview,
+          'Credit Assessment': creditAssessment,
+          'Final Review': finalReview,
           'Approved': approved,
           'Rejected': rejected,
           'Completed': completed
@@ -982,6 +991,307 @@ const sendRemarksToCustomer = async (req, res) => {
   }
 };
 
+/**
+ * Export lead-related datasets with role-aware filtering
+ */
+const exportLeads = async (req, res) => {
+  try {
+    const {
+      format = 'csv',
+      status,
+      productType,
+      assignedTo,
+      startDate,
+      endDate,
+      dataset = 'leads'
+    } = req.query;
+
+    const userRole = req.user.role;
+    const userZone = req.user.zone;
+    const userId = req.user.id;
+
+    const normalizedFormat = String(format).toLowerCase();
+    const normalizedDataset = String(dataset).toLowerCase();
+
+    const allowedFormats = ['csv', 'json'];
+    const allowedDatasets = ['leads', 'audit'];
+
+    if (!allowedFormats.includes(normalizedFormat)) {
+      return res.status(400).json({
+        success: false,
+        message: `Export format ${format} is not supported.`,
+        error: 'UNSUPPORTED_FORMAT'
+      });
+    }
+
+    if (!allowedDatasets.includes(normalizedDataset)) {
+      return res.status(400).json({
+        success: false,
+        message: `Export dataset ${dataset} is not supported.`,
+        error: 'UNSUPPORTED_DATASET'
+      });
+    }
+
+    const baseLeadQuery = {};
+
+    if (userRole === ROLES.PROCESSING_STAFF) {
+      baseLeadQuery.zone = userZone;
+    } else if (userRole === ROLES.NODAL_OFFICER) {
+      baseLeadQuery.zone = userZone;
+    } else if (assignedTo) {
+      baseLeadQuery.assignedTo = assignedTo;
+    }
+
+    if (status && status !== 'all') {
+      baseLeadQuery.status = status;
+    }
+
+    if (productType && productType !== 'all') {
+      baseLeadQuery.productType = productType;
+    }
+
+    const leadDateFilter = {};
+    if (startDate) {
+      leadDateFilter.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      leadDateFilter.$lte = end;
+    }
+    const hasLeadDateFilter = Object.keys(leadDateFilter).length > 0;
+
+    const formatValue = (value) => {
+      if (value === null || value === undefined) {
+        return '';
+      }
+
+      const stringValue = value.toString().replace(/"/g, '""');
+      if (/[",\n]/.test(stringValue)) {
+        return `"${stringValue}"`;
+      }
+      return stringValue;
+    };
+
+    if (normalizedDataset === 'audit') {
+      const leads = await Lead.find(baseLeadQuery)
+        .select('customerName status productType zone region assignedTo createdAt updatedAt')
+        .lean();
+
+      if (!leads.length) {
+        if (normalizedFormat === 'json') {
+          return res.status(200).json({
+            success: true,
+            message: 'No audit logs available for the selected filters.',
+            data: []
+          });
+        }
+
+        const headerRow = [
+          'Log ID',
+          'Lead ID',
+          'Customer Name',
+          'Action',
+          'Details',
+          'Old Value',
+          'New Value',
+          'Performed By',
+          'User Role',
+          'Lead Status',
+          'Product Type',
+          'Zone',
+          'Timestamp'
+        ].join(',');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="audit-export-${new Date().toISOString().split('T')[0]}.csv"`
+        );
+        return res.status(200).send(headerRow);
+      }
+
+      const leadMap = new Map(leads.map((lead) => [lead._id.toString(), lead]));
+      const leadIds = leads.map((lead) => lead._id);
+
+      const auditQuery = {
+        leadId: { $in: leadIds }
+      };
+
+      const auditDateFilter = {};
+      if (startDate) {
+        auditDateFilter.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        auditDateFilter.$lte = end;
+      }
+      if (Object.keys(auditDateFilter).length > 0) {
+        auditQuery.timestamp = auditDateFilter;
+      }
+
+      const logs = await AuditLog.find(auditQuery)
+        .populate('user', 'username role zone')
+        .sort({ timestamp: -1 })
+        .lean();
+
+      const exportData = logs.map((log) => {
+        const leadInfo = leadMap.get(log.leadId.toString());
+        return {
+          id: log._id.toString(),
+          leadId: log.leadId.toString(),
+          customerName: leadInfo?.customerName || log.customerName,
+          action: log.action,
+          details: log.details,
+          oldValue: log.oldValue || '',
+          newValue: log.newValue || '',
+          performedBy: log.user ? log.user.username : 'System',
+          userRole: log.user ? log.user.role : 'Unknown',
+          leadStatus: leadInfo?.status || '',
+          productType: leadInfo?.productType || '',
+          zone: leadInfo?.zone || '',
+          timestamp: log.timestamp ? new Date(log.timestamp).toISOString() : ''
+        };
+      });
+
+      if (normalizedFormat === 'json') {
+        return res.status(200).json({
+          success: true,
+          message: `Exported ${exportData.length} audit log(s)`,
+          data: exportData
+        });
+      }
+
+      const columns = [
+        ['Log ID', 'id'],
+        ['Lead ID', 'leadId'],
+        ['Customer Name', 'customerName'],
+        ['Action', 'action'],
+        ['Details', 'details'],
+        ['Old Value', 'oldValue'],
+        ['New Value', 'newValue'],
+        ['Performed By', 'performedBy'],
+        ['User Role', 'userRole'],
+        ['Lead Status', 'leadStatus'],
+        ['Product Type', 'productType'],
+        ['Zone', 'zone'],
+        ['Timestamp', 'timestamp']
+      ];
+
+      const headerRow = columns.map(([header]) => header).join(',');
+      const dataRows = exportData.map((row) =>
+        columns.map(([_, key]) => formatValue(row[key])).join(',')
+      );
+
+      const csvContent = [headerRow, ...dataRows].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="audit-export-${new Date().toISOString().split('T')[0]}.csv"`
+      );
+      return res.status(200).send(csvContent);
+    }
+
+    const leadQuery = {
+      ...baseLeadQuery,
+      ...(hasLeadDateFilter ? { createdAt: leadDateFilter } : {})
+    };
+
+    const leads = await Lead.find(leadQuery)
+      .populate('assignedTo', 'username email zone')
+      .populate('createdBy', 'username email zone')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const exportData = leads.map((lead) => ({
+      id: lead._id.toString(),
+      customerName: lead.customerName,
+      email: lead.email,
+      phone: lead.phone,
+      productType: lead.productType,
+      loanAmount: lead.loanAmount || '',
+      status: lead.status,
+      priorityScore: lead.priorityScore,
+      assignedTo: lead.assignedTo ? lead.assignedTo.username : 'Unassigned',
+      zone: lead.zone,
+      region: lead.region,
+      creditScore: lead.creditScore,
+      createdAt: lead.createdAt ? lead.createdAt.toISOString() : '',
+      updatedAt: lead.updatedAt ? lead.updatedAt.toISOString() : '',
+      createdBy: lead.createdBy ? lead.createdBy.username : 'System'
+    }));
+
+    if (normalizedFormat === 'json') {
+      return res.status(200).json({
+        success: true,
+        message: `Exported ${exportData.length} lead(s)`,
+        data: exportData
+      });
+    }
+
+    const columns = [
+      ['Lead ID', 'id'],
+      ['Customer Name', 'customerName'],
+      ['Email', 'email'],
+      ['Phone', 'phone'],
+      ['Product Type', 'productType'],
+      ['Loan Amount', 'loanAmount'],
+      ['Status', 'status'],
+      ['Priority Score', 'priorityScore'],
+      ['Assigned To', 'assignedTo'],
+      ['Zone', 'zone'],
+      ['Region', 'region'],
+      ['Credit Score', 'creditScore'],
+      ['Created By', 'createdBy'],
+      ['Created At', 'createdAt'],
+      ['Updated At', 'updatedAt']
+    ];
+
+    const headerRow = columns.map(([header]) => header).join(',');
+    const dataRows = exportData.map((row) =>
+      columns.map(([_, key]) => formatValue(row[key])).join(',')
+    );
+
+    const csvContent = [headerRow, ...dataRows].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="leads-export-${new Date().toISOString().split('T')[0]}.csv"`
+    );
+
+    return res.status(200).send(csvContent);
+  } catch (error) {
+    console.error('Export leads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export data',
+      error: 'EXPORT_FAILED'
+    });
+  }
+};
+
+const predictLeadOutcomes = async (req, res) => {
+  try {
+    const prediction = await mlPredictionService.predictLeadOutcomes(req.body || {});
+
+    res.status(200).json({
+      success: true,
+      message: 'Prediction generated successfully',
+      data: prediction
+    });
+  } catch (error) {
+    console.error('Lead prediction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate prediction',
+      error: 'PREDICTION_FAILED'
+    });
+  }
+};
+
 module.exports = {
   getLeads,
   getLeadById,
@@ -992,5 +1302,7 @@ module.exports = {
   updateLead,
   deleteLead,
   assignLead,
-  getLeadStats
+  getLeadStats,
+  exportLeads,
+  predictLeadOutcomes
 };

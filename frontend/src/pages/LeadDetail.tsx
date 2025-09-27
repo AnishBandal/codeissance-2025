@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,8 +43,10 @@ import {
 const LeadDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, role } = useAuth();
+  const locationState = location.state as { startEditing?: boolean } | null;
   
   const [lead, setLead] = useState<BackendLead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,6 +116,12 @@ const LeadDetail: React.FC = () => {
 
     fetchLead();
   }, [id, navigate, toast]);
+
+  useEffect(() => {
+    if (locationState?.startEditing && (role === 'nodal' || role === 'processing' || role === 'authority')) {
+      setIsEditing(true);
+    }
+  }, [locationState, role]);
 
   const handleSave = async () => {
     if (!id) return;
@@ -235,7 +243,10 @@ const LeadDetail: React.FC = () => {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'New': return 'bg-blue-100 text-blue-800';
-      case 'In Progress': return 'bg-yellow-100 text-yellow-800';
+      case 'Document Collection': return 'bg-yellow-100 text-yellow-800';
+      case 'Initial Review': return 'bg-blue-100 text-blue-800';
+      case 'Credit Assessment': return 'bg-purple-100 text-purple-800';
+      case 'Final Review': return 'bg-indigo-100 text-indigo-800';
       case 'Under Review': return 'bg-orange-100 text-orange-800';
       case 'Approved': return 'bg-green-100 text-green-800';
       case 'Rejected': return 'bg-red-100 text-red-800';
@@ -298,7 +309,7 @@ const LeadDetail: React.FC = () => {
             {lead.status}
           </Badge>
           
-          {user && (role === 'nodal' || role === 'processing') && (
+          {user && (role === 'nodal' || role === 'processing' || role === 'authority') && (
             <>
               {isEditing ? (
                 <div className="flex space-x-2">
@@ -499,7 +510,10 @@ const LeadDetail: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="New">New</SelectItem>
-                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Document Collection">Document Collection</SelectItem>
+                      <SelectItem value="Initial Review">Initial Review</SelectItem>
+                      <SelectItem value="Credit Assessment">Credit Assessment</SelectItem>
+                      <SelectItem value="Final Review">Final Review</SelectItem>
                       <SelectItem value="Under Review">Under Review</SelectItem>
                       <SelectItem value="Approved">Approved</SelectItem>
                       <SelectItem value="Rejected">Rejected</SelectItem>

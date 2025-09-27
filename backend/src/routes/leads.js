@@ -24,6 +24,28 @@ router.get('/stats',
   leadController.getLeadStats
 );
 
+/**
+ * @route   GET /api/leads/export
+ * @desc    Export leads in CSV/JSON format
+ * @access  Private (Nodal Officer & Higher Authority)
+ */
+router.get('/export',
+  authenticateToken,
+  requireRole([ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
+  leadController.exportLeads
+);
+
+/**
+ * @route   POST /api/leads/predict
+ * @desc    Get ML predictions for lead scoring
+ * @access  Private (Processing, Nodal Officer, Higher Authority)
+ */
+router.post('/predict',
+  authenticateToken,
+  requireRole([ROLES.PROCESSING_STAFF, ROLES.NODAL_OFFICER, ROLES.HIGHER_AUTHORITY]),
+  leadController.predictLeadOutcomes
+);
+
 // Specific routes should come before generic /:id route
 /**
  * @route   POST /api/leads/:id/assign

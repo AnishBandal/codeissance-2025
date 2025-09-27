@@ -142,32 +142,38 @@ const leadSchema = new mongoose.Schema({
   documents: [{
     filename: {
       type: String,
-      required: true,
-      trim: true
+      required: false,
+      trim: true,
+      default: ''
     },
     originalName: {
       type: String,
-      required: true,
-      trim: true
+      required: false,
+      trim: true,
+      default: ''
     },
     url: {
       type: String,
-      required: true,
-      trim: true
+      required: false,
+      trim: true,
+      default: ''
     },
     publicId: {
       type: String,
-      required: true,
-      trim: true
+      required: false,
+      trim: true,
+      default: ''
     },
     size: {
       type: Number,
-      required: true
+      required: false,
+      default: 0
     },
     mimetype: {
       type: String,
-      required: true,
-      trim: true
+      required: false,
+      trim: true,
+      default: ''
     },
     uploadedAt: {
       type: Date,
@@ -176,7 +182,7 @@ const leadSchema = new mongoose.Schema({
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: false
     }
   }],
   createdBy: { 

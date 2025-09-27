@@ -42,6 +42,7 @@ const LeadManagement: React.FC = () => {
   const { currentRole } = useRole();
   const { hasPermission } = useAuth();
   const { toast } = useToast();
+  const canEditLeads = hasPermission('update_leads');
   
   // State management
   const [leads, setLeads] = useState<BackendLead[]>([]);
@@ -123,7 +124,10 @@ const LeadManagement: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const statusColors: Record<string, string> = {
       'New': 'bg-blue-100 text-blue-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
+      'Document Collection': 'bg-yellow-100 text-yellow-800',
+      'Initial Review': 'bg-blue-100 text-blue-800',
+      'Credit Assessment': 'bg-purple-100 text-purple-800',
+      'Final Review': 'bg-indigo-100 text-indigo-800',
       'Under Review': 'bg-purple-100 text-purple-800',
       'Approved': 'bg-green-100 text-green-800',
       'Rejected': 'bg-red-100 text-red-800',
@@ -214,7 +218,10 @@ const LeadManagement: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="Document Collection">Document Collection</SelectItem>
+                  <SelectItem value="Initial Review">Initial Review</SelectItem>
+                  <SelectItem value="Credit Assessment">Credit Assessment</SelectItem>
+                  <SelectItem value="Final Review">Final Review</SelectItem>
                   <SelectItem value="Under Review">Under Review</SelectItem>
                   <SelectItem value="Approved">Approved</SelectItem>
                   <SelectItem value="Rejected">Rejected</SelectItem>
@@ -349,9 +356,11 @@ const LeadManagement: React.FC = () => {
                             <Eye className="w-4 h-4" />
                           </Link>
                         </Button>
-                        {(currentRole === 'processing' || currentRole === 'nodal') && (
-                          <Button variant="ghost" size="sm">
-                            <Edit className="w-4 h-4" />
+                        {canEditLeads && (
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/leads/${lead._id}`} state={{ startEditing: true }}>
+                              <Edit className="w-4 h-4" />
+                            </Link>
                           </Button>
                         )}
                       </div>

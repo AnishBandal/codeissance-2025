@@ -10,8 +10,6 @@ import {
   Plus, 
   ArrowRight, 
   Clock, 
-  AlertTriangle, 
-  CheckCircle,
   TrendingUp,
   Loader2
 } from 'lucide-react';
@@ -66,75 +64,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Get priority actions based on role
-  const getPriorityActions = () => {
-    switch (role) {
-      case 'processing':
-        return [
-          { 
-            title: 'High Priority Leads',
-            count: 3,
-            description: 'Leads requiring immediate attention',
-            icon: AlertTriangle,
-            color: 'text-red-600',
-            action: 'Review Now'
-          },
-          {
-            title: 'Pending Documents',
-            count: 5,
-            description: 'Leads waiting for document verification',
-            icon: Clock,
-            color: 'text-orange-600',
-            action: 'Process Documents'
-          }
-        ];
-        
-      case 'nodal':
-        return [
-          {
-            title: 'Unassigned Leads',
-            count: 8,
-            description: 'New leads awaiting assignment',
-            icon: AlertTriangle,
-            color: 'text-red-600',
-            action: 'Assign Now'
-          },
-          {
-            title: 'Team Performance',
-            count: 92,
-            description: 'Current team efficiency score',
-            icon: TrendingUp,
-            color: 'text-green-600',
-            action: 'View Details'
-          }
-        ];
-        
-      case 'authority':
-        return [
-          {
-            title: 'System Alerts',
-            count: 2,
-            description: 'Issues requiring executive attention',
-            icon: AlertTriangle,
-            color: 'text-red-600',
-            action: 'Review Alerts'
-          },
-          {
-            title: 'Monthly Target',
-            count: 85,
-            description: 'Progress towards monthly goals',
-            icon: CheckCircle,
-            color: 'text-green-600',
-            action: 'View Analytics'
-          }
-        ];
-        
-      default:
-        return [];
-    }
-  };
 
-  const priorityActions = getPriorityActions();
 
   return (
     <div className="space-y-8">
@@ -168,40 +98,8 @@ const Dashboard: React.FC = () => {
       {/* Statistics Cards */}
       <DashboardStats />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Priority Actions */}
-        <Card className="boi-card">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <AlertTriangle className="w-5 h-5 mr-2 text-orange-600" />
-              Priority Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {priorityActions.map((action, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <action.icon className={`w-5 h-5 ${action.color}`} />
-                  <div>
-                    <p className="font-medium text-gray-900">{action.title}</p>
-                    <p className="text-sm text-gray-600">{action.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="text-lg font-bold">
-                    {action.count}
-                  </Badge>
-                  <Button size="sm" variant="outline">
-                    {action.action}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Recent Leads */}
-        <Card className="boi-card">
+      {/* Recent Leads */}
+      <Card className="boi-card">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center">
@@ -256,7 +154,6 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
 
       {/* Quick Analytics for Higher Authority */}
       {role === 'authority' && analytics && (

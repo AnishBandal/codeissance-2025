@@ -73,6 +73,7 @@ app.use('/api/admin', require('./routes/adminDashboard'));
 app.use('/api/assignment', require('./routes/leadAssignment')); // Lead assignment with balance+proximity
 app.use('/api/leads', require('./routes/leadProgress')); // Lead progress management
 app.use('/api/leads', require('./routes/leadSync')); // Added for offline sync support
+app.use('/api/ml', require('./routes/ml')); // ML prediction service
 
 // 404 handler
 app.use('*', (req, res) => {

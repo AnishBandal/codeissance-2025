@@ -8,7 +8,7 @@ export interface BackendLead {
   email: string;
   phone: string;
   productType: string;
-  status: 'New' | 'In Progress' | 'Under Review' | 'Approved' | 'Rejected' | 'Completed';
+  status: 'New' | 'Document Collection' | 'Initial Review' | 'Credit Assessment' | 'Final Review' | 'Approved' | 'Rejected' | 'Completed';
   priorityScore: number;
   assignedTo?: {
     _id: string;
@@ -105,6 +105,8 @@ export interface LeadFilters {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface LeadStats {
@@ -135,6 +137,27 @@ export interface LeadStats {
     zone: string;
     viewingOwnLeads: boolean;
   };
+}
+
+export interface LeadPredictionRequest {
+  priorityScore?: number;
+  creditScore?: number;
+  loanAmount?: number | string;
+  customerAge?: number | string;
+  customerIncome?: number | string;
+  leadAge?: number;
+  daysSinceUpdate?: number;
+  productType?: string;
+  region?: string;
+  zone?: string;
+  customerOccupation?: string;
+}
+
+export interface LeadPredictionResponse {
+  leadScore: number | null;
+  leadCategory: string | null;
+  repaymentProbability: number | null;
+  repaymentDecision: string | null;
 }
 
 class LeadService {
@@ -183,14 +206,14 @@ class LeadService {
   async updateLead(id: string, updates: UpdateLeadRequest): Promise<ApiResponse<{ 
     lead: BackendLead; 
     emailSent?: boolean; 
-    emailInfo?: any 
+    emailInfo?: Record<string, unknown>; 
   }>> {
     return await apiCall<{ 
       lead: BackendLead; 
       emailSent?: boolean; 
-      emailInfo?: any 
+      emailInfo?: Record<string, unknown>; 
     }>({
-      method: 'PUT',
+          method: 'PATCH',
       url: `/leads/${id}`,
       data: updates
     });
@@ -212,12 +235,12 @@ class LeadService {
   async revertLeadToCustomer(id: string, reason?: string): Promise<ApiResponse<{ 
     lead: BackendLead; 
     emailSent: boolean; 
-    emailInfo: any 
+    emailInfo: Record<string, unknown>; 
   }>> {
     return await apiCall<{ 
       lead: BackendLead; 
       emailSent: boolean; 
-      emailInfo: any 
+      emailInfo: Record<string, unknown>; 
     }>({
       method: 'PUT',
       url: `/leads/${id}/revert`,
@@ -231,12 +254,12 @@ class LeadService {
   async sendRemarksToCustomer(id: string, remarks: string): Promise<ApiResponse<{ 
     lead?: BackendLead; 
     emailSent: boolean; 
-    emailInfo: any 
+    emailInfo: Record<string, unknown>; 
   }>> {
     return await apiCall<{ 
       lead?: BackendLead; 
       emailSent: boolean; 
-      emailInfo: any 
+      emailInfo: Record<string, unknown>; 
     }>({
       method: 'POST',
       url: `/leads/${id}/send-remarks`,
@@ -254,18 +277,35 @@ class LeadService {
     });
   }
 
+  async getLeadPrediction(
+    payload: LeadPredictionRequest
+  ): Promise<ApiResponse<LeadPredictionResponse>> {
+    return await apiCall<LeadPredictionResponse>({
+      method: 'POST',
+      url: '/ml/predict',
+      data: payload
+    });
+  }
+
   /**
    * Export leads data
    */
-  async exportLeads(format: 'csv' | 'xlsx' = 'csv', filters: LeadFilters = {}): Promise<Blob> {
-    const params = new URLSearchParams({
-      format,
-      ...Object.fromEntries(
-        Object.entries(filters).map(([key, value]) => [key, value?.toString() || ''])
-      )
+  async exportLeads(
+    format: 'csv' | 'json' = 'csv',
+    filters: LeadFilters = {},
+    dataset: 'leads' | 'audit' = 'leads'
+  ): Promise<Blob> {
+    const params = new URLSearchParams();
+    params.append('format', format);
+    params.append('dataset', dataset);
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value.toString());
+      }
     });
 
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/leads/export?${params}`, {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/leads/export?${params}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('leadvault_token')}`
       }

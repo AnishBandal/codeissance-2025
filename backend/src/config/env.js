@@ -12,7 +12,7 @@ const config = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1h',
   
   // ML Service Configuration
-  ML_SERVICE_URL: process.env.ML_SERVICE_URL || 'http://localhost:8000',
+  ML_SERVICE_URL: process.env.ML_SERVICE_URL || 'http://localhost:3001',
   
   // CORS Configuration
   // Allow multiple origins (frontend may run on 8080 or 3000, adjust as needed)
