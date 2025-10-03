@@ -144,6 +144,8 @@ const getLeadById = async (req, res) => {
  */
 const createLead = async (req, res) => {
   try {
+    console.log('🔍 CreateLead: Received request body:', JSON.stringify(req.body, null, 2));
+    
     const { 
       customerName, 
       name, // backward compatibility
@@ -165,6 +167,16 @@ const createLead = async (req, res) => {
     // Use customerName or fallback to name for backward compatibility
     const finalCustomerName = customerName || name;
     
+    console.log('🔍 CreateLead: Parsed values:', {
+      finalCustomerName,
+      email,
+      productType,
+      salary,
+      creditScore,
+      customerAge,
+      customerOccupation
+    });
+    
     // Validate required fields
     if (!finalCustomerName || !email || !productType || !salary || !creditScore || !customerAge || !customerOccupation) {
       return res.status(400).json({
@@ -175,14 +187,17 @@ const createLead = async (req, res) => {
     }
 
     // Check if lead with same email already exists
+    console.log('🔍 CreateLead: Checking for existing email:', email.toLowerCase());
     const existingLead = await Lead.findOne({ email: email.toLowerCase() });
     if (existingLead) {
+      console.log('❌ CreateLead: Duplicate email found:', existingLead._id);
       return res.status(409).json({
         success: false,
         message: 'Lead with this email already exists',
         error: 'DUPLICATE_EMAIL'
       });
     }
+    console.log('✅ CreateLead: Email is unique, proceeding...');
 
     // Prepare lead data for ML service
     const leadData = {

@@ -66,6 +66,10 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         error: null,
       };
     case 'AUTH_SUCCESS':
+      // Store token in localStorage when authentication succeeds
+      if (action.payload.token) {
+        localStorage.setItem('leadvault_token', action.payload.token);
+      }
       return {
         ...state,
         user: action.payload.user,

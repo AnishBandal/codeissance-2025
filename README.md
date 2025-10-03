@@ -35,7 +35,6 @@ A comprehensive Lead Management System with enterprise-grade security features i
 
 ### 🎯 **Advanced Features**
 - ✅ **Progressive Web App (PWA)** - Install on mobile/desktop
-- ✅ **Face Verification** for enhanced security
 - ✅ **Email Notifications** for lead updates
 - ✅ **AI Scoring** for lead prioritization
 - ✅ **Responsive Design** - Mobile-first approach

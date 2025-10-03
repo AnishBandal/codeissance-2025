@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useOfflineLeadSync } from '@/hooks/useOfflineLeadSync';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { leadService, type CreateLeadRequest } from '@/services/leadService';
 import { uploadService, type CreateLeadWithFilesRequest } from '@/services/uploadService';
 import FileUpload from '@/components/ui/FileUpload';
@@ -108,7 +109,19 @@ interface LeadFormData {
 const NewLead: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, currentRole } = useRole();
+  const { user, isAuthenticated, token } = useAuth();
   const { enqueue, manualSync, stats, isOnline } = useOfflineLeadSync({ role: currentRole, apiUrl: '/leads/sync' });
+  
+  // Debug authentication state
+  useEffect(() => {
+    console.log('🔍 NewLead Auth Debug:', {
+      isAuthenticated,
+      hasToken: !!token,
+      tokenInStorage: !!localStorage.getItem('leadvault_token'),
+      user: user?.username,
+      role: user?.role
+    });
+  }, [isAuthenticated, token, user]);
   
   const [formData, setFormData] = useState<LeadFormData>({
     customerName: '',
@@ -306,6 +319,16 @@ const NewLead: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    
+    // Debug authentication before API call
+    const authToken = localStorage.getItem('leadvault_token');
+    console.log('🔐 Submit Debug:', {
+      hasToken: !!authToken,
+      tokenPreview: authToken ? `${authToken.substring(0, 10)}...` : 'none',
+      isAuthenticated,
+      user: user?.username
+    });
+    
     try {
       if (!formData.customerName || !formData.email || !formData.phone || !formData.productType || !formData.customerIncome || !formData.customerAge || !formData.customerOccupation) {
         toast.error('Please fill in all required fields');
@@ -336,19 +359,20 @@ const NewLead: React.FC = () => {
         status: 'New'
       };
 
-      // For brevity, assume simple POST (files handling can be re-added if needed offline logic separated)
-      const res = await fetch('http://localhost:5000/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(leadData)
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || res.statusText);
+      // Use leadService which includes authentication headers
+      console.log('🔐 Submit Debug: About to create lead with data:', leadData);
+      
+      const response = await leadService.createLead(leadData);
+      
+      console.log('📤 Lead creation response:', response);
+      
+      if (response.success) {
+        toast.success(`Lead created successfully (ID: ${response.data.lead._id || 'N/A'})`);
+        navigate('/leads');
+      } else {
+        console.error('❌ Lead creation failed:', response);
+        throw new Error(response.message || 'Failed to create lead');
       }
-      const json = await res.json();
-      toast.success(`Lead created (ID ${json?.lead?._id || json?.lead?.id || 'N/A'})`);
-      navigate('/leads');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create lead';
       toast.error(message);
